@@ -1,0 +1,1637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VeriScanx</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================= TOKENS ============================= */
+:root{
+  color-scheme: dark;
+  --bg: #0A0612;
+  --plane: #0F0A1C;
+  --surface: rgba(255,255,255,0.045);
+  --surface-2: rgba(255,255,255,0.08);
+  --ink: #F6F3FA;
+  --ink-2: #B7ADCB;
+  --ink-3: #8177A0;
+  --border: rgba(255,255,255,0.09);
+  --border-strong: rgba(255,255,255,0.18);
+
+  --accent-a: #7C5CF0;
+  --accent-b: #B23A7A;
+  --accent-grad: linear-gradient(120deg, var(--accent-a), var(--accent-b));
+  --accent: #8452D8;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(132,82,216,0.14);
+  --accent-strong: #B99AF2;
+  --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 16px 36px -20px rgba(0,0,0,0.65);
+  --glow-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 20px 44px -22px rgba(124,92,240,0.28);
+
+  /* status (fixed — never themed) */
+  --good: #35c46a;      --good-soft: rgba(53,196,106,0.14);
+  --warning: #f0ac2e;   --warning-soft: rgba(240,172,46,0.14);
+  --serious: #f0895a;   --serious-soft: rgba(240,137,90,0.14);
+  --critical: #ef6363;  --critical-soft: rgba(239,99,99,0.14);
+
+  /* categorical (doc type) — validated default order */
+  --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500; --cat-5: #d55181;
+
+  /* sequential (single hue) */
+  --seq-100: #2a1a45; --seq-300: #6b3fa0; --seq-500: #b660f5; --seq-700: #f3defe;
+
+  --chart-surface: #150E26;
+  --grid-line: rgba(255,255,255,0.08);
+  --axis: rgba(255,255,255,0.28);
+
+  --font-display: "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --radius-s: 8px;
+  --radius-m: 14px;
+  --radius-l: 20px;
+}
+
+/* ============================= RESET / BASE ============================= */
+*,*::before,*::after{ box-sizing:border-box; }
+html{ -webkit-text-size-adjust:100%; }
+body{
+  margin:0; color:var(--ink);
+  font-family:var(--font-body); font-size:16px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  background:
+    radial-gradient(900px 520px at 18% -12%, rgba(124,92,240,0.13), transparent 65%),
+    var(--bg);
+  background-attachment: fixed;
+}
+h1,h2,h3,h4{ font-family:var(--font-display); font-weight:600; margin:0; text-wrap:balance; color:var(--ink); letter-spacing:-0.01em; }
+p{ margin:0; }
+a{ color:inherit; }
+button{ font-family:inherit; }
+img{ max-width:100%; display:block; }
+::selection{ background:var(--accent); color:#fff; }
+:focus-visible{ outline:2px solid var(--accent-strong); outline-offset:2px; border-radius:4px; }
+.mono{ font-family:var(--font-mono); }
+.tnum{ font-variant-numeric: tabular-nums; }
+.sr-only{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+@media (prefers-reduced-motion: reduce){
+  *{ animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; scroll-behavior:auto !important; }
+}
+
+.wrap{ max-width:1160px; margin:0 auto; padding:0 28px; }
+@media (max-width:720px){ .wrap{ padding:0 18px; } }
+
+/* eyebrow / exhibit label */
+.eyebrow{
+  font-family:var(--font-mono); font-size:12px; letter-spacing:0.09em; text-transform:uppercase;
+  color:var(--accent-strong); display:flex; align-items:center; gap:10px; margin-bottom:14px;
+}
+.eyebrow::before{ content:""; width:22px; height:1px; background:var(--accent-strong); display:inline-block; }
+
+/* ============================= TOPBAR ============================= */
+.topbar{
+  position:sticky; top:0; z-index:40;
+}
+.topbar::before{
+  content:""; position:absolute; inset:0; z-index:-1;
+  background:rgba(10,6,18,0.72); border-bottom:1px solid var(--border);
+  backdrop-filter:saturate(120%) blur(10px);
+}
+.topbar-inner{ display:flex; align-items:center; gap:24px; height:64px; }
+.brand{ display:flex; align-items:center; gap:10px; font-family:var(--font-display); font-weight:700; font-size:19px; letter-spacing:0.01em; flex-shrink:0; }
+.brand-mark{ width:26px; height:26px; flex-shrink:0; }
+.brand small{ font-family:var(--font-mono); font-weight:400; font-size:10.5px; color:var(--ink-3); letter-spacing:0.05em; margin-left:2px; }
+.tabs{ display:flex; gap:22px; margin-left:auto; align-items:center; }
+.tab-btn{
+  appearance:none; border:none; background:transparent; color:var(--ink-2);
+  font-size:13px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; padding:8px 2px; cursor:pointer;
+  display:flex; align-items:center; gap:7px; position:relative; transition:color .15s;
+}
+.tab-btn::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:2px; border-radius:2px; background:var(--accent-strong); transform:scaleX(0); transition:transform .2s ease; }
+.tab-btn:hover{ color:var(--ink); }
+.tab-btn[aria-selected="true"]{ color:var(--ink); }
+.tab-btn[aria-selected="true"]::after{ transform:scaleX(1); }
+.tab-dot{ display:none; }
+@media (max-width:760px){
+  .tabs{ position:fixed; left:0; right:0; bottom:0; margin:0; background:rgba(14,8,24,0.9); border-top:1px solid var(--border);
+    padding:8px 10px calc(8px + env(safe-area-inset-bottom)); justify-content:space-around; z-index:50; backdrop-filter:blur(10px); }
+  .tab-btn span.tab-label{ font-size:10.5px; }
+  .tab-btn{ flex-direction:column; gap:3px; flex:1; text-transform:none; letter-spacing:0; }
+  .nav-cta{ display:none !important; }
+  body{ padding-bottom:70px; }
+}
+
+/* ============================= BUTTONS ============================= */
+.btn{
+  appearance:none; cursor:pointer; border-radius:999px; font-weight:600; font-size:14.5px;
+  padding:12px 22px; border:1px solid transparent; display:inline-flex; align-items:center; gap:8px;
+  transition:transform .15s ease, background .15s, border-color .15s, color .15s, filter .15s;
+  font-family:var(--font-body);
+}
+.btn:active{ transform:translateY(1px); }
+.btn-primary{ background:var(--accent); color:#fff; box-shadow:0 6px 18px -8px rgba(124,92,240,0.45); }
+.btn-primary:hover{ background:var(--accent-a); transform:translateY(-1px); }
+.btn-ghost{ background:rgba(255,255,255,0.04); color:var(--ink); border-color:var(--border-strong); backdrop-filter:blur(8px); }
+.btn-ghost:hover{ background:rgba(255,255,255,0.09); border-color:rgba(255,255,255,0.3); }
+.btn-sm{ padding:8px 14px; font-size:13.5px; }
+.btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+/* ============================= VIEW SWITCH ============================= */
+.view{ animation:viewin .32s ease both; }
+@keyframes viewin{ from{ opacity:0; transform:translateY(8px);} to{ opacity:1; transform:none; } }
+.view[hidden]{ display:none !important; }
+
+/* ============================= HERO ============================= */
+.hero{ padding:72px 0 64px; }
+.hero-grid{ display:grid; grid-template-columns:1.05fr 0.95fr; gap:56px; align-items:center; }
+@media (max-width:900px){ .hero-grid{ grid-template-columns:1fr; gap:64px; } .hero{ padding:44px 0 40px; } }
+.hero h1{ font-size:clamp(34px,4.6vw,56px); line-height:1.05; letter-spacing:-0.02em; }
+.hero h1 em{ font-style:normal; font-weight:700; color:var(--accent-strong); }
+.hero-sub{ margin-top:22px; font-size:17.5px; color:var(--ink-2); max-width:52ch; line-height:1.65; }
+.hero-cta{ display:flex; gap:14px; margin-top:32px; flex-wrap:wrap; }
+.hero-stats{ display:flex; gap:30px; margin-top:40px; flex-wrap:wrap; }
+.hero-stat b{ display:block; font-family:var(--font-display); font-size:22px; color:var(--ink); }
+.hero-stat span{ font-size:12.5px; color:var(--ink-3); }
+
+/* scanning document visual */
+.scan-card-wrap{ display:flex; justify-content:center; position:relative; padding:34px; }
+.scan-card-wrap::before{
+  content:""; position:absolute; width:380px; height:380px; max-width:82%; border-radius:50%;
+  background:radial-gradient(circle, rgba(124,92,240,0.28), rgba(178,58,122,0.12) 46%, transparent 72%);
+  filter:blur(50px); z-index:0;
+}
+.scan-card{
+  position:relative; z-index:1; width:100%; max-width:380px; aspect-ratio:1.42/1; border-radius:18px;
+  background:linear-gradient(160deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+  border:1px solid var(--border-strong); box-shadow:var(--shadow), var(--glow-shadow);
+  backdrop-filter:blur(10px) saturate(120%); overflow:hidden; padding:18px 20px;
+}
+.scan-card::after{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background-image:repeating-linear-gradient(115deg, transparent 0 18px, rgba(255,255,255,0.035) 18px 19px);
+}
+.scan-corner{ position:absolute; width:16px; height:16px; border:2px solid var(--accent-strong); opacity:.85; }
+.scan-corner.tl{ top:10px; left:10px; border-right:none; border-bottom:none; }
+.scan-corner.tr{ top:10px; right:10px; border-left:none; border-bottom:none; }
+.scan-corner.bl{ bottom:10px; left:10px; border-right:none; border-top:none; }
+.scan-corner.br{ bottom:10px; right:10px; border-left:none; border-top:none; }
+.scan-head{ display:flex; justify-content:space-between; align-items:flex-start; font-family:var(--font-mono); font-size:10px; color:var(--ink-3); letter-spacing:.06em; }
+.scan-live{ color:var(--good); display:flex; align-items:center; gap:5px; }
+.scan-live i{ width:6px; height:6px; border-radius:50%; background:var(--good); display:inline-block; animation:pulse 1.6s infinite; }
+@keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
+.scan-body{ display:flex; gap:16px; margin-top:16px; }
+.scan-photo{ width:64px; height:78px; border-radius:8px; background:var(--surface-2); border:1px solid var(--border-strong); flex-shrink:0; position:relative; overflow:hidden; }
+.scan-photo svg{ position:absolute; inset:0; width:100%; height:100%; color:var(--ink-3); opacity:.6; }
+.scan-fields{ flex:1; display:flex; flex-direction:column; gap:7px; padding-top:2px; }
+.scan-field-line{ height:7px; border-radius:3px; background:var(--border-strong); }
+.scan-mrz{ margin-top:18px; font-family:var(--font-mono); font-size:10.5px; letter-spacing:.08em; color:var(--ink-3); line-height:1.7; opacity:.85; }
+.scan-sweep{
+  position:absolute; left:0; right:0; height:46%; top:-46%;
+  background:linear-gradient(180deg, transparent, rgba(124,92,240,0.22) 45%, var(--accent-strong) 92%, transparent);
+  filter:blur(1px); animation:sweep 3.2s cubic-bezier(.4,0,.2,1) infinite;
+  mix-blend-mode:plus-lighter;
+}
+@keyframes sweep{ 0%{ top:-46%; } 55%{ top:100%; } 100%{ top:100%; } }
+.scan-badge{ position:absolute; bottom:14px; right:16px; font-family:var(--font-mono); font-size:10.5px; padding:4px 9px; border-radius:999px; background:var(--good-soft); color:var(--good); border:1px solid currentColor; }
+
+.float-chip{
+  position:absolute; z-index:2; background:rgba(16,10,26,0.78); border:1px solid var(--border-strong);
+  backdrop-filter:blur(8px); border-radius:12px; padding:10px 16px; box-shadow:var(--shadow);
+  font-family:var(--font-mono); font-size:10.5px; color:var(--ink-3); letter-spacing:.03em;
+}
+.float-chip b{ display:block; font-size:17px; font-family:var(--font-display); color:var(--ink); font-weight:700; }
+.float-chip-a{ top:-22px; right:-18px; }
+.float-chip-b{ bottom:-22px; left:-18px; }
+@media (max-width:900px){ .float-chip{ display:none; } }
+
+/* ============================= SECTIONS ============================= */
+.section{ padding:68px 0; border-top:1px solid var(--border); }
+.section-head{ max-width:640px; margin-bottom:38px; }
+.section-head h2{ font-size:clamp(24px,3vw,34px); }
+.section-head p{ color:var(--ink-2); margin-top:12px; font-size:15.5px; }
+
+/* process timeline */
+.pipeline{ position:relative; display:flex; flex-wrap:wrap; gap:32px 0; padding-top:8px; }
+.pipeline::before{
+  content:""; position:absolute; top:35px; left:6%; right:6%; height:1px; z-index:0;
+  background:linear-gradient(90deg, transparent, var(--border-strong) 12%, var(--border-strong) 88%, transparent);
+}
+@media (max-width:980px){ .pipeline::before{ display:none; } .pipeline{ flex-direction:column; gap:0; } }
+.pipe-step{ flex:1 1 0; min-width:150px; text-align:center; padding:0 14px 6px; position:relative; z-index:1; }
+@media (max-width:980px){ .pipe-step{ text-align:left; display:flex; gap:16px; align-items:flex-start; padding:16px 0; } }
+.pipe-num{
+  width:46px; height:46px; border-radius:50%; margin:0 auto 16px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--chart-surface); border:1px solid var(--border-strong);
+  font-family:var(--font-mono); font-weight:600; font-size:13px; color:var(--accent-strong);
+}
+@media (max-width:980px){ .pipe-num{ margin:0; } }
+.pipe-step h4{ font-size:15px; margin-top:2px; }
+.pipe-step p{ font-size:13px; color:var(--ink-2); margin-top:8px; line-height:1.55; }
+
+/* feature grid */
+.feature-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+@media (max-width:900px){ .feature-grid{ grid-template-columns:repeat(2,1fr); } }
+@media (max-width:560px){ .feature-grid{ grid-template-columns:1fr; } }
+.feature-card{
+  background:var(--surface); padding:26px 22px; border:1px solid var(--border); border-radius:var(--radius-m);
+  backdrop-filter:blur(8px) saturate(115%); transition:transform .15s ease, border-color .15s ease, background .15s ease;
+}
+.feature-card:hover{ transform:translateY(-2px); border-color:var(--border-strong); background:rgba(255,255,255,0.06); }
+.feature-icon-wrap{ width:46px; height:46px; border-radius:14px; background:var(--accent-soft); display:flex; align-items:center; justify-content:center; }
+.feature-icon{ width:22px; height:22px; color:var(--accent-strong); }
+.feature-card h4{ font-size:15.5px; margin-top:16px; }
+.feature-card p{ font-size:13.5px; color:var(--ink-2); margin-top:8px; line-height:1.55; }
+
+/* architecture */
+.arch{ display:flex; flex-direction:column; gap:0; }
+.arch-layer{ display:grid; grid-template-columns:180px 1fr; gap:20px; padding:16px 0; align-items:center; }
+.arch-layer + .arch-layer{ border-top:1px dashed var(--border); }
+.arch-label{ font-family:var(--font-mono); font-size:11.5px; color:var(--ink-3); letter-spacing:.04em; }
+.arch-boxes{ display:flex; gap:10px; flex-wrap:wrap; }
+.arch-box{
+  background:var(--surface); border:1px solid var(--border-strong); border-radius:999px; padding:10px 16px;
+  font-size:13.5px; font-weight:500; backdrop-filter:blur(6px);
+}
+.arch-box.accent{ border-color:transparent; color:#fff; font-weight:600; background:var(--accent); }
+@media (max-width:700px){ .arch-layer{ grid-template-columns:1fr; gap:8px; } }
+.arch-arrow{ display:flex; justify-content:center; color:var(--ink-3); font-size:12px; padding:2px 0; font-family:var(--font-mono); }
+
+/* stack badges */
+.badge-row{ display:flex; flex-wrap:wrap; gap:9px; }
+.stack-badge{ font-family:var(--font-mono); font-size:12.5px; padding:7px 12px; border:1px solid var(--border-strong); border-radius:999px; color:var(--ink-2); background:var(--surface); backdrop-filter:blur(6px); }
+
+/* impact */
+.impact-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:18px; }
+@media (max-width:820px){ .impact-grid{ grid-template-columns:repeat(2,1fr); } }
+.impact-card{
+  background:var(--surface); padding:26px 22px; border:1px solid var(--border); border-radius:var(--radius-m);
+  backdrop-filter:blur(8px) saturate(115%);
+}
+.impact-num{ font-family:var(--font-display); font-weight:700; font-size:28px; color:var(--accent-strong); }
+.impact-card span{ display:block; font-size:12.5px; color:var(--ink-2); margin-top:8px; line-height:1.5; }
+.impact-note{ margin-top:16px; font-size:12.5px; color:var(--ink-3); font-style:italic; }
+
+/* team */
+.team-grid{ display:grid; grid-template-columns:repeat(6,1fr); gap:14px; }
+@media (max-width:900px){ .team-grid{ grid-template-columns:repeat(3,1fr); } }
+@media (max-width:560px){ .team-grid{ grid-template-columns:repeat(2,1fr); } }
+.team-card{ text-align:left; }
+.team-avatar{
+  width:100%; aspect-ratio:1; border-radius:50%; padding:0; border:1.5px solid var(--border-strong); background:var(--chart-surface);
+  display:flex; align-items:center; justify-content:center;
+}
+.team-avatar span{
+  width:100%; height:100%; border-radius:50%; background:transparent;
+  display:flex; align-items:center; justify-content:center; color:var(--ink-2); font-family:var(--font-mono); font-size:11px;
+}
+.team-card b{ display:block; margin-top:12px; font-size:13.5px; }
+.team-card span.role{ font-size:12px; color:var(--ink-3); }
+
+/* final CTA */
+.cta-panel{
+  position:relative; overflow:hidden; text-align:center; border-radius:var(--radius-l);
+  padding:56px 40px; border:1px solid var(--border-strong);
+  background:linear-gradient(135deg, rgba(124,92,240,0.12), rgba(178,58,122,0.07));
+}
+.cta-glow{ position:absolute; width:340px; height:340px; border-radius:50%; top:-140px; right:-90px; pointer-events:none;
+  background:radial-gradient(circle, rgba(178,58,122,0.28), transparent 70%); filter:blur(55px); }
+.cta-glow-2{ position:absolute; width:280px; height:280px; border-radius:50%; bottom:-120px; left:-80px; pointer-events:none;
+  background:radial-gradient(circle, rgba(124,92,240,0.24), transparent 70%); filter:blur(55px); }
+.cta-content{ position:relative; z-index:1; max-width:600px; margin:0 auto; }
+.cta-content p{ color:var(--ink-2); margin-top:14px; font-size:15.5px; line-height:1.6; }
+.cta-content .hero-cta{ justify-content:center; margin-top:28px; }
+
+.footer{ border-top:1px solid var(--border); padding:36px 0; }
+.footer-inner{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; font-size:12.5px; color:var(--ink-3); }
+
+/* ============================= DEMO VIEW ============================= */
+.demo-shell{ padding:48px 0 76px; }
+.demo-head{ max-width:680px; margin-bottom:34px; }
+.kiosk{
+  background:var(--surface); border:1px solid var(--border-strong); border-radius:20px;
+  box-shadow:var(--shadow); backdrop-filter:blur(10px) saturate(120%); padding:8px;
+}
+.kiosk-inner{ background:rgba(0,0,0,0.16); border-radius:20px; padding:28px; min-height:420px; }
+.kiosk-topline{ display:flex; justify-content:space-between; align-items:center; font-family:var(--font-mono); font-size:11px; color:var(--ink-3); margin-bottom:22px; letter-spacing:.05em; }
+.kiosk-topline .dot{ width:6px; height:6px; border-radius:50%; background:var(--good); display:inline-block; margin-right:6px; animation:pulse 1.6s infinite; }
+
+.mode-switch{ display:flex; gap:8px; margin-bottom:24px; flex-wrap:wrap; }
+.mode-btn{
+  appearance:none; cursor:pointer; border:1px solid var(--border-strong); background:var(--surface); color:var(--ink-2);
+  font-size:13px; font-weight:600; padding:9px 16px; border-radius:999px; transition:background .15s,color .15s,border-color .15s;
+  font-family:var(--font-body);
+}
+.mode-btn:hover{ color:var(--ink); }
+.mode-btn[aria-selected="true"]{ background:var(--accent-soft); color:var(--accent-strong); border-color:transparent; }
+
+.manual-grid{ display:grid; grid-template-columns:1fr 1fr; gap:26px; align-items:start; }
+@media (max-width:880px){ .manual-grid{ grid-template-columns:1fr; } }
+.manual-form{ display:flex; flex-direction:column; gap:14px; }
+.manual-form label{ display:flex; flex-direction:column; gap:6px; font-size:11.5px; color:var(--ink-3); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:.05em; }
+.manual-form input, .manual-form select{
+  font-family:var(--font-body); font-size:14.5px; color:var(--ink); background:var(--surface-2);
+  border:1px solid var(--border-strong); border-radius:var(--radius-s); padding:10px 12px; text-transform:none; letter-spacing:normal;
+}
+.manual-form input::placeholder{ color:var(--ink-3); }
+.manual-form input:focus, .manual-form select:focus{ outline:2px solid var(--accent-strong); outline-offset:1px; }
+.manual-row-2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.manual-hint{ font-size:12.5px; color:var(--ink-3); line-height:1.6; margin-top:2px; }
+.manual-hint b{ color:var(--ink-2); font-weight:600; }
+.manual-empty{ text-align:center; padding:52px 20px; color:var(--ink-3); font-size:13.5px; border:1px dashed var(--border); border-radius:var(--radius-m); }
+
+.upload-zone{
+  border:1.5px dashed var(--border-strong); border-radius:var(--radius-l); padding:48px 24px; text-align:center;
+  cursor:pointer; transition:border-color .15s, background .15s, transform .15s;
+}
+.upload-zone:hover, .upload-zone.drag{ border-color:var(--accent-strong); background:var(--accent-soft); }
+.upload-zone:hover .upload-icon-wrap{ transform:scale(1.06); }
+.upload-icon-wrap{
+  width:64px; height:64px; margin:0 auto; border-radius:50%; background:var(--accent-soft);
+  display:flex; align-items:center; justify-content:center; transition:transform .2s ease;
+}
+.upload-zone svg{ width:28px; height:28px; color:var(--accent-strong); }
+.upload-zone h3{ font-size:17px; margin-top:16px; }
+.upload-zone p{ font-size:13.5px; color:var(--ink-3); margin-top:6px; }
+.sample-divider{ display:flex; align-items:center; gap:12px; margin:24px 0 4px; color:var(--ink-3); font-size:12px; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:.06em; }
+.sample-divider::before, .sample-divider::after{ content:""; flex:1; height:1px; background:var(--border); }
+.sample-row{ display:flex; gap:12px; justify-content:center; margin-top:18px; flex-wrap:wrap; }
+.sample-card{
+  appearance:none; cursor:pointer; display:flex; align-items:center; gap:12px; text-align:left;
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-m);
+  padding:12px 18px 12px 12px; transition:transform .15s ease, border-color .15s ease, background .15s ease;
+  font-family:var(--font-body); color:var(--ink); flex:1 1 220px; max-width:280px;
+}
+.sample-card:hover{ transform:translateY(-2px); border-color:var(--border-strong); background:rgba(255,255,255,0.06); }
+.sample-thumb{ width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.sample-thumb svg{ width:18px; height:18px; }
+.sample-thumb-clean{ background:var(--good-soft); color:var(--good); }
+.sample-thumb-flagged{ background:var(--critical-soft); color:var(--critical); }
+.sample-label{ font-size:13.5px; font-weight:600; line-height:1.3; }
+.sample-label small{ display:block; font-weight:400; color:var(--ink-3); font-size:11.5px; margin-top:2px; }
+
+.pipeline-steps{ display:flex; flex-direction:column; gap:2px; max-width:520px; margin:0 auto; }
+.pstep{ display:flex; align-items:center; gap:12px; padding:11px 4px; font-size:14px; color:var(--ink-3); }
+.pstep .pi{ width:20px; height:20px; border-radius:50%; border:1.5px solid var(--border-strong); flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+.pstep.active{ color:var(--ink); }
+.pstep.active .pi{ border-color:var(--accent-strong); }
+.pstep.active .pi::after{ content:""; width:9px; height:9px; border-radius:50%; background:var(--accent-strong); animation:pulse 1s infinite; }
+.pstep.done{ color:var(--ink); }
+.pstep.done .pi{ border-color:var(--good); background:var(--good-soft); }
+.pstep.done .pi svg{ width:12px; height:12px; color:var(--good); }
+.pstep .plabel{ flex:1; }
+.pstep .ptime{ font-family:var(--font-mono); font-size:11.5px; color:var(--ink-3); }
+
+.results{ display:grid; grid-template-columns:1.1fr 1.4fr; gap:20px; align-items:start; }
+@media (max-width:880px){ .results{ grid-template-columns:1fr; } }
+.rcard{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-m); padding:20px 22px; backdrop-filter:blur(8px); }
+.rcard h4{ font-size:12.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-3); font-family:var(--font-mono); font-weight:500; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; }
+.rcard h4 .tag{ font-size:10px; padding:2px 7px; border-radius:999px; text-transform:none; letter-spacing:0; }
+.tag-live{ background:var(--good-soft); color:var(--good); }
+.tag-sim{ background:var(--surface-2); color:var(--ink-3); }
+
+.risk-gauge{ display:flex; flex-direction:column; align-items:center; padding:6px 0 4px; }
+.risk-arc-wrap{ position:relative; width:210px; max-width:100%; }
+.risk-arc{ width:100%; height:auto; display:block; }
+.risk-arc-fill{ transition:stroke-dashoffset 1s cubic-bezier(.4,0,.2,1); }
+.risk-score-overlay{ position:absolute; left:0; right:0; bottom:2px; display:flex; flex-direction:column; align-items:center; }
+.risk-score{ font-family:var(--font-display); font-size:44px; line-height:1; font-weight:700; }
+.risk-band{ margin-top:8px; font-size:12.5px; font-weight:600; padding:4px 12px; border-radius:999px; }
+.risk-decision{ margin-top:16px; font-size:13px; color:var(--ink-2); text-align:center; line-height:1.5; }
+
+.field-list{ display:flex; flex-direction:column; gap:9px; }
+.field-row{ display:flex; justify-content:space-between; gap:12px; font-size:13.5px; padding:7px 0; border-bottom:1px solid var(--border); }
+.field-row:last-child{ border-bottom:none; }
+.field-row .fk{ color:var(--ink-3); }
+.field-row .fv{ font-family:var(--font-mono); font-weight:500; text-align:right; }
+
+.check-list{ display:flex; flex-direction:column; gap:10px; }
+.check-row{ display:flex; gap:10px; align-items:flex-start; font-size:13.5px; }
+.check-icon{ width:18px; height:18px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+.check-icon svg{ width:11px; height:11px; }
+.check-pass{ background:var(--good-soft); color:var(--good); }
+.check-fail{ background:var(--critical-soft); color:var(--critical); }
+.check-warn{ background:var(--warning-soft); color:var(--warning); }
+.check-text b{ display:block; font-weight:600; }
+.check-text span{ color:var(--ink-3); font-size:12.5px; }
+
+.ela-wrap{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.ela-frame{ position:relative; border-radius:var(--radius-s); overflow:hidden; border:1px solid var(--border); background:var(--surface-2); aspect-ratio:1.4/1; }
+.ela-frame img{ width:100%; height:100%; object-fit:cover; }
+.ela-frame span{ position:absolute; bottom:6px; left:8px; font-family:var(--font-mono); font-size:10px; background:rgba(0,0,0,0.55); color:#fff; padding:2px 6px; border-radius:4px; }
+.contrib-list{ display:flex; flex-direction:column; gap:10px; margin-top:4px; }
+.contrib-row{ display:grid; grid-template-columns:130px 1fr 40px; gap:10px; align-items:center; font-size:12.5px; }
+.contrib-track{ height:7px; border-radius:999px; background:var(--surface-2); overflow:hidden; }
+.contrib-fill{ height:100%; border-radius:999px; }
+.results-actions{ display:flex; gap:10px; margin-top:6px; grid-column:1/-1; }
+
+/* ============================= DASHBOARD VIEW ============================= */
+.dash-shell{ padding:44px 0 76px; }
+.dash-head{ display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; margin-bottom:26px; }
+.stat-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:26px; }
+@media (max-width:820px){ .stat-grid{ grid-template-columns:repeat(2,1fr); } }
+.stat-card{ background:var(--surface); padding:20px 22px; border:1px solid var(--border); border-radius:var(--radius-m); backdrop-filter:blur(8px); }
+.stat-card .label{ font-family:var(--font-mono); font-size:11px; color:var(--ink-3); text-transform:uppercase; letter-spacing:.05em; }
+.stat-card .value{ font-family:var(--font-display); font-size:26px; margin-top:8px; font-weight:700; }
+.stat-card .delta{ font-size:12px; margin-top:6px; display:flex; align-items:center; gap:4px; }
+.delta-up{ color:var(--good); } .delta-down{ color:var(--critical); }
+
+.dash-grid{ display:grid; grid-template-columns:1.3fr 1fr; gap:18px; margin-bottom:18px; }
+@media (max-width:980px){ .dash-grid{ grid-template-columns:1fr; } }
+.panel{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-l); padding:22px 22px 18px; backdrop-filter:blur(8px) saturate(115%); }
+.panel-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+.panel-head h3{ font-size:14.5px; font-family:var(--font-body); font-weight:600; }
+.legend{ display:flex; gap:14px; flex-wrap:wrap; }
+.legend-item{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-2); }
+.legend-swatch{ width:9px; height:9px; border-radius:2px; flex-shrink:0; }
+
+.tooltip{
+  position:absolute; pointer-events:none; background:var(--surface-2); color:var(--ink); font-family:var(--font-mono);
+  font-size:11.5px; padding:7px 10px; border-radius:8px; border:1px solid var(--border-strong);
+  transform:translate(-50%,-115%); white-space:nowrap; box-shadow:var(--shadow); opacity:0; transition:opacity .1s; z-index:5;
+}
+.tooltip.show{ opacity:1; }
+
+.table-wrap{ overflow-x:auto; }
+table.scans{ width:100%; border-collapse:collapse; font-size:13px; min-width:640px; }
+table.scans th{ text-align:left; font-family:var(--font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-3); font-weight:500; padding:0 10px 10px; border-bottom:1px solid var(--border-strong); }
+table.scans td{ padding:11px 10px; border-bottom:1px solid var(--border); vertical-align:middle; }
+table.scans tr:last-child td{ border-bottom:none; }
+.doc-tag{ display:inline-flex; align-items:center; gap:6px; font-size:12.5px; }
+.doc-dot{ width:8px; height:8px; border-radius:2px; flex-shrink:0; }
+.pill{ display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; padding:4px 10px; border-radius:999px; }
+.pill svg{ width:10px; height:10px; }
+.new-row{ animation:rowin .5s ease both; }
+@keyframes rowin{ from{ background:var(--accent-soft); } to{ background:transparent; } }
+
+.reason-list{ display:flex; flex-direction:column; gap:12px; }
+.reason-row{ display:grid; grid-template-columns:1fr 34px; gap:10px; align-items:center; }
+.reason-row .rlabel{ font-size:13px; display:flex; justify-content:space-between; }
+.reason-row .rlabel span:last-child{ font-family:var(--font-mono); color:var(--ink-3); }
+.reason-track{ grid-column:1/-1; height:7px; border-radius:999px; background:var(--surface-2); overflow:hidden; margin-top:-4px; }
+.reason-fill{ height:100%; background:var(--accent-strong); border-radius:999px; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M13 2 L23 6 V13 C23 19 18.5 23 13 24.5 C7.5 23 3 19 3 13 V6 Z" stroke="var(--accent-strong)" stroke-width="1.6" fill="var(--accent-soft)"/>
+        <path d="M8.5 13.2 L11.5 16.2 L18 9.5" stroke="var(--accent-strong)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      VeriScanx<small>SIH&nbsp;2026</small>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button class="tab-btn" role="tab" data-view="overview" aria-selected="true"><span class="tab-dot"></span><span class="tab-label">Overview</span></button>
+      <button class="tab-btn" role="tab" data-view="demo" aria-selected="false"><span class="tab-dot"></span><span class="tab-label">Live Demo</span></button>
+      <button class="tab-btn" role="tab" data-view="dashboard" aria-selected="false"><span class="tab-dot"></span><span class="tab-label">Dashboard</span></button>
+      <button class="btn btn-primary btn-sm nav-cta" data-goto="demo">Try Live Demo</button>
+    </nav>
+  </div>
+</header>
+
+<main id="app">
+<section id="view-overview" class="view" data-view-panel="overview">
+
+  <div class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <div class="eyebrow">Smart India Hackathon 2026 — Border &amp; Immigration Tech</div>
+        <h1>Verify every travel document in seconds, <em>not minutes.</em></h1>
+        <p class="hero-sub">VeriScanx is a computer-vision pipeline that inspects passports and ID documents for tampering, cross-checks passenger details against live government and international records, catches duplicate or blacklisted identities, and hands the counter officer one clear risk score — before the traveler has finished stepping up to the desk.</p>
+        <div class="hero-cta">
+          <button class="btn btn-primary" data-goto="demo">Run the live demo
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+          </button>
+          <button class="btn btn-ghost" data-scroll="#pipeline">See how it works</button>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat"><b class="tnum">&lt;8s</b><span>Target verify time</span></div>
+          <div class="hero-stat"><b class="tnum">6</b><span>Checks per document</span></div>
+          <div class="hero-stat"><b class="tnum">24/7</b><span>Kiosk &amp; counter ready</span></div>
+        </div>
+      </div>
+      <div class="scan-card-wrap">
+        <div class="float-chip float-chip-a"><b>&lt;8s</b><span>Target verify time</span></div>
+        <div class="float-chip float-chip-b"><b>6</b><span>Checks per scan</span></div>
+        <div class="scan-card">
+          <div class="scan-sweep"></div>
+          <span class="scan-corner tl"></span><span class="scan-corner tr"></span><span class="scan-corner bl"></span><span class="scan-corner br"></span>
+          <div class="scan-head"><span>DOC/SCAN/0417-A</span><span class="scan-live"><i></i>LIVE</span></div>
+          <div class="scan-body">
+            <div class="scan-photo"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8.5" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg></div>
+            <div class="scan-fields">
+              <div class="scan-field-line" style="width:82%"></div>
+              <div class="scan-field-line" style="width:60%"></div>
+              <div class="scan-field-line" style="width:70%"></div>
+              <div class="scan-field-line" style="width:45%"></div>
+              <div class="scan-field-line" style="width:66%"></div>
+            </div>
+          </div>
+          <div class="scan-mrz">P&lt;NRDVERMA&lt;&lt;ANIKA&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;<br>402183756234NRD9006014F<wbr>3001<wbr>128&lt;&lt;12</div>
+          <span class="scan-badge">Risk score 6 · Clear</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">Exhibit 01 — The problem</div>
+        <h2>Manual document checks don't scale, and forged documents don't announce themselves.</h2>
+        <p>Immigration counters and airport kiosks still lean on a trained eye and a UV lamp. That's slow at peak hours, inconsistent across shifts, and easy to beat with a well-made forgery, a photo-swapped passport, or a document that's already on a blacklist under a different alias.</p>
+      </div>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon-wrap"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg></div>
+          <h4>Throughput bottleneck</h4>
+          <p>Peak-hour queues grow because each document needs a manual look, even when 90%+ are genuine.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon-wrap"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l8 4v5c0 5-3.4 8-8 9-4.6-1-8-4-8-9V7z"/><path d="M9.5 12l2 2 3.5-4"/></svg></div>
+          <h4>Inconsistent scrutiny</h4>
+          <p>Fatigue, shift changes, and lighting mean the same forged page can pass one officer and not another.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon-wrap"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 12h4l2-7 4 14 2-7h4"/></svg></div>
+          <h4>Siloed watchlists</h4>
+          <p>National blacklists, Interpol-style alerts, and prior-scan history rarely get cross-checked in real time.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section" id="pipeline">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">Exhibit 02 — How it works</div>
+        <h2>One scan, six checks, one decision.</h2>
+        <p>Every document that comes through the kiosk or counter scanner moves through the same pipeline, so the outcome is repeatable regardless of who's on shift.</p>
+      </div>
+      <div class="pipeline">
+        <div class="pipe-step"><div class="pipe-num">01</div><div><h4>Capture &amp; upload</h4><p>Kiosk camera, counter scanner, or mobile app ingests the document image and, where available, the NFC chip data.</p></div></div>
+        <div class="pipe-step"><div class="pipe-num">02</div><div><h4>OCR &amp; MRZ parsing</h4><p>Extracts the visual fields and machine-readable zone, then validates the MRZ checksum digits.</p></div></div>
+        <div class="pipe-step"><div class="pipe-num">03</div><div><h4>Image forensics</h4><p>Error-level analysis and print-pattern checks surface splicing, re-prints, and photo substitution.</p></div></div>
+        <div class="pipe-step"><div class="pipe-num">04</div><div><h4>Database cross-check</h4><p>Queries issuing-authority records, the national blacklist, and international watchlists in real time.</p></div></div>
+        <div class="pipe-step"><div class="pipe-num">05</div><div><h4>Identity resolution</h4><p>Face-matches the document photo and searches prior scans for duplicate or multiple identities.</p></div></div>
+        <div class="pipe-step"><div class="pipe-num">06</div><div><h4>Risk scoring</h4><p>A weighted, explainable 0–100 score routes the traveler to clear, secondary review, or escalation.</p></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">Exhibit 03 — What it catches</div>
+        <h2>Built around the ways travel documents actually get faked.</h2>
+      </div>
+      <div class="feature-grid">
+        <div class="feature-card"><div class="feature-icon-wrap"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 13l5-4 4 3 5-6 4 4"/></svg></div><h4>Tamper &amp; forgery detection</h4><p>Error-level analysis and font/kerning consistency flag edited regions and photo swaps.</p></div>
+        <div class="feature-card"><div class="feature-icon-wrap"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h16M4 12h10M4 19h7"/><circle cx="19" cy="19" r="2.5"/></svg></div><h4>MRZ &amp; field validation</h4><p>Checksum digits and cross-field consistency (name, DOB, document number) are verified automatically.</p></div>
+        <div class="feature-card"><div class="feature-icon-wrap"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l8 4v5c0 5-3.4 8-8 9-4.6-1-8-4-8-9V7z"/><path d="M9 12h6M12 9v6"/></svg></div><h4>Blacklist &amp; watchlist matching</h4><p>Real-time lookup against national blacklists and international alert lists on every scan.</p></div>
+        <div class="feature-card"><div class="feature-icon-wrap"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="9" r="3.2"/><circle cx="17" cy="9" r="3.2" opacity=".5"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/></svg></div><h4>Multiple-identity detection</h4><p>Searches prior scans for the same face or biographic details filed under a different name.</p></div>
+        <div class="feature-card"><div class="feature-icon-wrap"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12l6 6L21 6"/></svg></div><h4>Real-time, explainable risk score</h4><p>A weighted 0–100 score with a visible breakdown, not a black-box yes/no.</p></div>
+        <div class="feature-card"><div class="feature-icon-wrap"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/></svg></div><h4>Officer dashboard &amp; audit trail</h4><p>Every scan, decision, and override is logged for review and analytics.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">Exhibit 04 — Architecture</div>
+        <h2>Five layers, one pipeline.</h2>
+      </div>
+      <div class="arch">
+        <div class="arch-layer"><div class="arch-label">01 · Capture</div><div class="arch-boxes"><div class="arch-box">Airport kiosk</div><div class="arch-box">Counter scanner</div><div class="arch-box">Mobile officer app</div></div></div>
+        <div class="arch-layer" style="grid-template-columns:1fr;"><div class="arch-arrow">↓ verification request</div></div>
+        <div class="arch-layer"><div class="arch-label">02 · API gateway</div><div class="arch-boxes"><div class="arch-box accent">Verification API</div><div class="arch-box">Auth &amp; rate limiting</div></div></div>
+        <div class="arch-layer" style="grid-template-columns:1fr;"><div class="arch-arrow">↓ dispatch</div></div>
+        <div class="arch-layer"><div class="arch-label">03 · Processing core</div><div class="arch-boxes"><div class="arch-box">OCR / MRZ engine</div><div class="arch-box">CV forensics engine</div><div class="arch-box">Face-match engine</div></div></div>
+        <div class="arch-layer" style="grid-template-columns:1fr;"><div class="arch-arrow">↓ lookups</div></div>
+        <div class="arch-layer"><div class="arch-label">04 · Data layer</div><div class="arch-boxes"><div class="arch-box">National ID registry</div><div class="arch-box">Blacklist DB</div><div class="arch-box">Int'l watchlist</div><div class="arch-box">Prior-scans store</div></div></div>
+        <div class="arch-layer" style="grid-template-columns:1fr;"><div class="arch-arrow">↓ aggregate</div></div>
+        <div class="arch-layer"><div class="arch-label">05 · Decision</div><div class="arch-boxes"><div class="arch-box accent">Risk engine</div><div class="arch-box">Officer dashboard</div><div class="arch-box">Alerts &amp; audit log</div></div></div>
+      </div>
+      <div class="section-head" style="margin:38px 0 16px;"><div class="eyebrow">Proposed stack</div></div>
+      <div class="badge-row">
+        <span class="stack-badge">React</span><span class="stack-badge">Python / FastAPI</span><span class="stack-badge">OpenCV</span><span class="stack-badge">Tesseract OCR</span><span class="stack-badge">ONNX face-match model</span><span class="stack-badge">PostgreSQL</span><span class="stack-badge">Redis queue</span><span class="stack-badge">Govt DB connector (mock in demo)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">Exhibit 05 — Projected impact</div>
+        <h2>What we're targeting for the pilot.</h2>
+        <p>These are design targets for the prototype, not measured production figures — they're what the pipeline above is architected to hit.</p>
+      </div>
+      <div class="impact-grid">
+        <div class="impact-card"><div class="impact-num">70%↓</div><span>Average counter processing time vs. fully manual checks</span></div>
+        <div class="impact-card"><div class="impact-num">6</div><span>Independent checks run on every single document</span></div>
+        <div class="impact-card"><div class="impact-num">~5–10%</div><span>Share of scans expected to route to manual review</span></div>
+        <div class="impact-card"><div class="impact-num">100%</div><span>Of scans logged with a full, auditable decision trail</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">Exhibit 06 — Team</div>
+        <h2>Built for SIH 2026.</h2>
+      </div>
+      <div class="team-grid">
+        <div class="team-card"><div class="team-avatar"><span>TL</span></div><b>[Team Lead]</b><span class="role">Team Lead</span></div>
+        <div class="team-card"><div class="team-avatar"><span>CV</span></div><b>[Your Name]</b><span class="role">Computer Vision / ML</span></div>
+        <div class="team-card"><div class="team-avatar"><span>BE</span></div><b>[Your Name]</b><span class="role">Backend Engineer</span></div>
+        <div class="team-card"><div class="team-avatar"><span>FE</span></div><b>[Your Name]</b><span class="role">Frontend Engineer</span></div>
+        <div class="team-card"><div class="team-avatar"><span>UX</span></div><b>[Your Name]</b><span class="role">UI / UX Design</span></div>
+        <div class="team-card"><div class="team-avatar"><span>DR</span></div><b>[Your Name]</b><span class="role">Research &amp; Docs</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="wrap">
+      <div class="cta-panel">
+        <div class="cta-glow"></div><div class="cta-glow-2"></div>
+        <div class="cta-content">
+          <div class="eyebrow" style="justify-content:center;">Ready when you are</div>
+          <h2>See it catch a forgery, live in your browser.</h2>
+          <p>No install, no account — upload a document or try a fictional specimen and watch the real tamper-detection pass run in seconds.</p>
+          <div class="hero-cta">
+            <button class="btn btn-primary" data-goto="demo">Run the live demo</button>
+            <button class="btn btn-ghost" data-goto="dashboard">View officer dashboard</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <span>VeriScanx — built for Smart India Hackathon 2026. Prototype for demonstration purposes; sample documents are fictional.</span>
+      <span class="mono">v0.1 · PS submission draft</span>
+    </div>
+  </footer>
+
+</section>
+<section id="view-demo" class="view" data-view-panel="demo" hidden>
+  <div class="wrap demo-shell">
+    <div class="demo-head">
+      <div class="eyebrow">Live demo</div>
+      <h2 style="font-size:clamp(22px,2.6vw,28px);">Run a document through the pipeline.</h2>
+      <p style="color:var(--ink-2); margin-top:10px; font-size:14.5px; line-height:1.6;">Upload any ID-style image, or try a fictional specimen document below. The image-forensics panel runs a real error-level-analysis pass on your image in the browser; OCR extraction, MRZ parsing and database lookups are simulated against a small demo dataset — clearly marked below, no real government systems are queried.</p>
+      <div class="badge-row" style="margin-top:18px;">
+        <span class="stack-badge">Client-side ELA — nothing uploaded</span>
+        <span class="stack-badge">Demo dataset only, not live records</span>
+        <span class="stack-badge">Typical run &lt; 8s</span>
+      </div>
+    </div>
+
+    <div class="kiosk">
+      <div class="kiosk-inner">
+        <div class="kiosk-topline"><span><span class="dot"></span>KIOSK-04 · READY</span><span id="kioskClock" class="mono"></span></div>
+
+        <div class="mode-switch" role="tablist" aria-label="Demo mode">
+          <button class="mode-btn" data-mode="upload" aria-selected="true">Upload &amp; scan</button>
+          <button class="mode-btn" data-mode="manual" aria-selected="false">Type details live</button>
+        </div>
+
+        <div id="demoMode-upload">
+        <div id="demoStage-upload">
+          <div class="upload-zone" id="uploadZone" tabindex="0" role="button" aria-label="Upload a document image">
+            <div class="upload-icon-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+            </div>
+            <h3>Drop a document image, or click to upload</h3>
+            <p>JPG or PNG · processed entirely in your browser</p>
+          </div>
+          <input type="file" id="fileInput" accept="image/*" class="sr-only" />
+          <div class="sample-divider"><span>or try a sample</span></div>
+          <div class="sample-row">
+            <button class="sample-card" id="sampleClean">
+              <span class="sample-thumb sample-thumb-clean"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l6 6L20 6"/></svg></span>
+              <span class="sample-label">Clean specimen<small>Passes verification</small></span>
+            </button>
+            <button class="sample-card" id="sampleFlagged">
+              <span class="sample-thumb sample-thumb-flagged"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z" fill="none"/><path d="M12 9v5M12 17h.01"/></svg></span>
+              <span class="sample-label">Flagged specimen<small>Tampered &amp; blacklisted</small></span>
+            </button>
+          </div>
+        </div>
+
+        <div id="demoStage-processing" hidden>
+          <div class="pipeline-steps" id="pipelineSteps"></div>
+        </div>
+
+        <div id="demoStage-results" hidden>
+          <div class="results" id="resultsGrid"></div>
+          <div class="results-actions">
+            <button class="btn btn-ghost btn-sm" id="scanAnother">↺ Scan another document</button>
+            <button class="btn btn-primary btn-sm" data-goto="dashboard">View in officer dashboard →</button>
+          </div>
+        </div>
+        </div>
+
+        <div id="demoMode-manual" hidden>
+          <div class="manual-grid">
+            <div class="manual-form">
+              <label>Full name
+                <input type="text" id="mName" placeholder="e.g. Farid Osei" autocomplete="off" />
+              </label>
+              <label>Date of birth
+                <input type="date" id="mDob" />
+              </label>
+              <div class="manual-row-2">
+                <label>Document type
+                  <select id="mDocType">
+                    <option>Passport</option><option>National ID</option><option>Aadhaar Card</option><option>Visa</option><option>Driving Licence</option>
+                  </select>
+                </label>
+                <label>Nationality
+                  <select id="mNationality">
+                    <option>NORDAVIA</option><option>REPUBLIC OF SOLARA</option><option>KAELSTAD</option><option>MERIDIA</option><option>VASTRIA</option><option>TARNE</option>
+                  </select>
+                </label>
+              </div>
+              <label>Document number
+                <input type="text" id="mDocNumber" class="mono" placeholder="e.g. 118334029917" inputmode="numeric" maxlength="12" autocomplete="off" />
+              </label>
+              <label>Expiry date
+                <input type="date" id="mExpiry" />
+              </label>
+              <p class="manual-hint">No submit button — results update live as you type. Try document number <b class="mono">118334029917</b> (on the demo blacklist), or name <b>Farid Osei</b> with DOB <b>1988-03-11</b> (a duplicate already in the demo scan history).</p>
+            </div>
+            <div class="manual-results" id="manualResults">
+              <div class="manual-empty">Fill in a name, document number, or expiry date — the risk assessment updates live as you type, no submit button needed.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+<section id="view-dashboard" class="view" data-view-panel="dashboard" hidden>
+  <div class="wrap dash-shell">
+    <div class="dash-head">
+      <div>
+        <div class="eyebrow">Officer dashboard</div>
+        <h2 style="font-size:clamp(22px,2.6vw,28px);">Today at Terminal 2, Counter 4–9</h2>
+      </div>
+      <span class="mono" style="font-size:12px;color:var(--ink-3);" id="dashClock"></span>
+    </div>
+
+    <div class="stat-grid" id="statGrid"></div>
+
+    <div class="dash-grid">
+      <div class="panel">
+        <div class="panel-head"><h3>Scan volume — last 14 days</h3></div>
+        <div id="volumeChart" style="position:relative;"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Scans by risk band</h3></div>
+        <div id="bandChart" style="position:relative;"></div>
+      </div>
+    </div>
+
+    <div class="dash-grid">
+      <div class="panel" style="grid-column:1/-1;">
+        <div class="panel-head">
+          <h3>Recent scans</h3>
+          <div class="legend" id="docTypeLegend"></div>
+        </div>
+        <div class="table-wrap">
+          <table class="scans">
+            <thead><tr><th>Time</th><th>Traveler</th><th>Document</th><th>Country</th><th>Risk</th><th>Status</th></tr></thead>
+            <tbody id="scansTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-grid" style="grid-template-columns:1fr;">
+      <div class="panel">
+        <div class="panel-head"><h3>Top flag reasons — last 14 days</h3></div>
+        <div class="reason-list" id="reasonList"></div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   ICONS
+   ============================================================ */
+const ICON = {
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l6 6L20 6"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l14 14M19 5L5 19"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z" fill="none"/><path d="M12 9v5M12 17h.01"/></svg>'
+};
+
+/* ============================================================
+   UTIL — deterministic hashing / PRNG
+   ============================================================ */
+function fnv1a(str){
+  let h = 0x811c9dc5;
+  for (let i=0;i<str.length;i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return h >>> 0;
+}
+function mulberry32(seed){
+  let a = seed >>> 0;
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function pick(rng, arr){ return arr[Math.floor(rng()*arr.length)]; }
+function pad(n){ return String(n).padStart(2,'0'); }
+function fmtTime(d){ return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()); }
+function fmtClock(d){ return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds())+'  ·  '+d.toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}); }
+function fmtDate(d){ return d.toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}); }
+function addDays(base, days){ const d=new Date(base); d.setDate(d.getDate()+days); return d; }
+function clamp(v,lo,hi){ return Math.max(lo, Math.min(hi, v)); }
+
+/* ============================================================
+   MOCK REFERENCE DATA
+   ============================================================ */
+const FIRST_NAMES = ["Anika","Rohan","Meera","Kabir","Sana","Devan","Ishita","Aarav","Priya","Farid","Tanya","Omar","Leila","Noor","Vikram","Yara","Karim","Sofia","Elin","Matteo"];
+const LAST_NAMES  = ["Verma","Iyer","Rahman","Okafor","Kessler","Nakamura","Silva","Duarte","Haddad","Wren","Petrov","Lindqvist","Batra","Alvi","Mensah","Costa"];
+const NATIONALITIES = ["NORDAVIA","REPUBLIC OF SOLARA","KAELSTAD","MERIDIA","VASTRIA","TARNE"];
+const DOC_TYPES = ["Passport","National ID","Aadhaar Card","Visa","Driving Licence"];
+const DOC_TYPE_VAR = { "Passport":"--cat-1", "Visa":"--cat-2", "National ID":"--cat-3", "Driving Licence":"--cat-4", "Aadhaar Card":"--cat-5", "Other":"--cat-5" };
+
+const BLACKLIST = ["118334029917","702551998234","556027134890","904218756123","220198443567","665003267891"];
+const DUPLICATE_STORE = [
+  {name:"Farid Osei", dob:"1988-03-11"},
+  {name:"Leila Haddad", dob:"1995-07-22"},
+  {name:"Karim Alvi", dob:"1979-11-02"}
+];
+
+/* ============================================================
+   VIEW ROUTER
+   ============================================================ */
+const views = ["overview","demo","dashboard"];
+function setView(name, opts){
+  opts = opts || {};
+  views.forEach(v=>{
+    document.getElementById('view-'+v).hidden = (v!==name);
+  });
+  document.querySelectorAll('.tab-btn').forEach(b=>{
+    b.setAttribute('aria-selected', b.dataset.view===name ? 'true':'false');
+  });
+  if(!opts.silent) window.scrollTo({top:0, behavior:'auto'});
+  if(name==='dashboard') renderDashboard();
+}
+document.querySelectorAll('.tab-btn').forEach(b=>{
+  b.addEventListener('click', ()=> setView(b.dataset.view));
+});
+document.querySelectorAll('[data-goto]').forEach(b=>{
+  b.addEventListener('click', ()=> setView(b.dataset.goto));
+});
+document.querySelectorAll('[data-scroll]').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    const el = document.querySelector(b.dataset.scroll);
+    if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+  });
+});
+
+/* live clocks */
+function tickClocks(){
+  const now = new Date();
+  const k = document.getElementById('kioskClock'); if(k) k.textContent = fmtClock(now);
+  const d = document.getElementById('dashClock'); if(d) d.textContent = fmtClock(now);
+}
+tickClocks(); setInterval(tickClocks, 1000);
+
+/* ============================================================
+   SCAN LOG (seeded history + session-added scans)
+   ============================================================ */
+const now0 = new Date();
+function seedHistory(){
+  const rng = mulberry32(fnv1a('aegis-seed-2026'));
+  const rows = [];
+  for(let i=0;i<11;i++){
+    const t = new Date(now0.getTime() - Math.floor(rng()*1000*60*180));
+    const band = pick(rng, ['Low','Low','Low','Low','Medium','Medium','High','Critical']);
+    rows.push({
+      id: 'H'+i,
+      time: t,
+      name: pick(rng,FIRST_NAMES)+' '+pick(rng,LAST_NAMES),
+      docType: pick(rng, DOC_TYPES),
+      country: pick(rng, NATIONALITIES),
+      score: band==='Low'? Math.round(rng()*22) : band==='Medium'? 25+Math.round(rng()*24) : band==='High'? 50+Math.round(rng()*24) : 75+Math.round(rng()*25),
+      band,
+      reasons: band==='Low' ? [] : band==='Medium' ? ['Field mismatch'] : band==='High' ? ['Tamper suspected'] : ['Blacklist match','Duplicate identity']
+    });
+  }
+  rows.sort((a,b)=> b.time-a.time);
+  return rows;
+}
+const scanLog = seedHistory();
+
+/* 14-day volume seed */
+function seedVolume(){
+  const rng = mulberry32(fnv1a('aegis-volume-2026'));
+  const days = [];
+  for(let i=13;i>=0;i--){
+    const d = addDays(now0, -i);
+    const base = 140 + Math.round(rng()*60);
+    const weekend = (d.getDay()===0||d.getDay()===6) ? 0.7 : 1;
+    days.push({ date:d, count: Math.round(base*weekend) });
+  }
+  return days;
+}
+const volumeSeed = seedVolume();
+
+/* ============================================================
+   RISK ENGINE
+   ============================================================ */
+function bandFor(score){
+  if(score>=75) return 'Critical';
+  if(score>=50) return 'High';
+  if(score>=25) return 'Medium';
+  return 'Low';
+}
+const BAND_VAR = { Low:'--good', Medium:'--warning', High:'--serious', Critical:'--critical' };
+const BAND_SOFT_VAR = { Low:'--good-soft', Medium:'--warning-soft', High:'--serious-soft', Critical:'--critical-soft' };
+const BAND_DECISION = {
+  Low: "Clear traveler — no further action required.",
+  Medium: "Route to secondary review — a second officer should confirm the flagged fields.",
+  High: "Escalate to duty officer before clearing this traveler.",
+  Critical: "Escalate immediately — hold the document and notify security."
+};
+
+function computeRisk(input){
+  // input: {tamperScore, blacklistHit, duplicateHit, mrzValid, expired}
+  let score = 0;
+  score += input.tamperScore * 0.25;      // up to 25
+  score += input.blacklistHit ? 30 : 0;
+  score += input.duplicateHit ? 25 : 0;
+  score += input.mrzValid ? 0 : 12;
+  score += input.expired ? 8 : 0;
+  score = Math.round(clamp(score,0,100));
+  const band = bandFor(score);
+  const reasons = [];
+  if(input.tamperScore>=45) reasons.push('Tamper suspected');
+  if(input.blacklistHit) reasons.push('Blacklist match');
+  if(input.duplicateHit) reasons.push('Duplicate identity');
+  if(!input.mrzValid) reasons.push('MRZ / field mismatch');
+  if(input.expired) reasons.push('Expired document');
+  return {score, band, reasons};
+}
+
+/* ============================================================
+   SPECIMEN GENERATION (canvas) — fictional demo-only documents
+   ============================================================ */
+function drawSpecimen(canvas, variant){
+  const W = 640, H = 400;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = variant==='flagged' ? '#e9e2d3' : '#eef0e6';
+  ctx.fillRect(0,0,W,H);
+  // decorative guilloché-ish backdrop
+  ctx.strokeStyle = 'rgba(20,40,40,0.06)';
+  for(let i=-H;i<W;i+=9){
+    ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i+H,H); ctx.stroke();
+  }
+  const data = variant==='flagged'
+    ? {name:'OSEI, FARID', dob:'11 MAR 1988', dobISO:'1988-03-11', doc:'118334029917', nat:'NORDAVIA', sex:'M', exp:'01 FEB 2027', mrz:'P<NRDOSEI<<FARID<<<<<<<<<<<<<<<<<<<<\\n1183340299173NRD8803118M2702018<<<<<02'}
+    : {name:'VERMA, ANIKA', dob:'06 JAN 1996', dobISO:'1996-01-06', doc:'402183756234', nat:'NORDAVIA', sex:'F', exp:'14 AUG 2031', mrz:'P<NRDVERMA<<ANIKA<<<<<<<<<<<<<<<<<<<<<\\n4021837562344NRD9601068F3108148<<<<<12'};
+
+  // header
+  ctx.fillStyle = '#1a2620'; ctx.font = '700 15px Georgia, serif';
+  ctx.fillText('REPUBLIC OF NORDAVIA · PASSPORT', 28, 34);
+  ctx.font = '400 10px Georgia, serif'; ctx.fillStyle='#4a564d';
+  ctx.fillText('SPECIMEN DOCUMENT — FICTIONAL, FOR DEMONSTRATION ONLY', 28, 50);
+
+  // photo box
+  ctx.fillStyle = '#cfd6c9'; ctx.fillRect(28,68,112,140);
+  ctx.strokeStyle='#8b9686'; ctx.strokeRect(28,68,112,140);
+  ctx.fillStyle='#8b9686';
+  ctx.beginPath(); ctx.arc(84,120,26,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(84,190,40,34,0,Math.PI,0,true); ctx.fill();
+
+  if(variant==='flagged'){
+    // simulated crude photo-substitution patch: a slightly offset, differently-toned rectangle
+    ctx.save();
+    ctx.translate(2,-2);
+    ctx.fillStyle = 'rgba(235,225,200,0.9)';
+    ctx.fillRect(30,70,108,86);
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = '#a6ae98';
+    ctx.beginPath(); ctx.arc(84,118,24,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  // field lines
+  const fields = [['SURNAME, GIVEN NAME', data.name], ['DATE OF BIRTH', data.dob], ['NATIONALITY', data.nat], ['SEX', data.sex], ['DOCUMENT NO.', data.doc], ['DATE OF EXPIRY', data.exp]];
+  let fy = 78;
+  fields.forEach(([label,val])=>{
+    ctx.fillStyle = '#6a7566'; ctx.font = '600 8.5px Arial'; ctx.fillText(label, 158, fy);
+    ctx.fillStyle = '#1a2620'; ctx.font = '600 13px "Courier New", monospace'; ctx.fillText(val, 158, fy+15);
+    fy += 30;
+  });
+
+  // MRZ
+  ctx.fillStyle = variant==='flagged' ? '#efe8da' : '#e2e6da';
+  ctx.fillRect(0,H-64,W,64);
+  ctx.fillStyle = '#20281f'; ctx.font='600 15px "Courier New", monospace';
+  data.mrz.split('\\n').forEach((line,i)=> ctx.fillText(line, 28, H-38+i*22));
+
+  // watermark
+  ctx.save();
+  ctx.globalAlpha = 0.14; ctx.fillStyle = '#1a2620';
+  ctx.font = '700 46px Georgia, serif';
+  ctx.translate(W/2, H/2); ctx.rotate(-0.35);
+  ctx.textAlign='center'; ctx.fillText('SPECIMEN', 0, 0);
+  ctx.restore();
+
+  return data;
+}
+
+/* ============================================================
+   ERROR LEVEL ANALYSIS — real client-side computation
+   ============================================================ */
+function loadImageEl(src){
+  return new Promise((resolve,reject)=>{
+    const img = new Image();
+    img.onload = ()=>resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+async function computeELA(imgEl){
+  const MAXDIM = 720;
+  let w = imgEl.naturalWidth || imgEl.width, h = imgEl.naturalHeight || imgEl.height;
+  const scale = Math.min(1, MAXDIM/Math.max(w,h));
+  w = Math.max(1,Math.round(w*scale)); h = Math.max(1,Math.round(h*scale));
+
+  const c1 = document.createElement('canvas'); c1.width=w; c1.height=h;
+  const ctx1 = c1.getContext('2d', {willReadFrequently:true});
+  ctx1.drawImage(imgEl,0,0,w,h);
+  const original = ctx1.getImageData(0,0,w,h);
+
+  const recompURL = c1.toDataURL('image/jpeg', 0.92);
+  const img2 = await loadImageEl(recompURL);
+  const c2 = document.createElement('canvas'); c2.width=w; c2.height=h;
+  const ctx2 = c2.getContext('2d', {willReadFrequently:true});
+  ctx2.drawImage(img2,0,0,w,h);
+  const recompressed = ctx2.getImageData(0,0,w,h);
+
+  const diffCanvas = document.createElement('canvas'); diffCanvas.width=w; diffCanvas.height=h;
+  const dctx = diffCanvas.getContext('2d');
+  const diffData = dctx.createImageData(w,h);
+  let sum=0, sumSq=0; const n = w*h; const AMP = 9;
+  for(let i=0;i<original.data.length;i+=4){
+    const dr=Math.abs(original.data[i]-recompressed.data[i]);
+    const dg=Math.abs(original.data[i+1]-recompressed.data[i+1]);
+    const db=Math.abs(original.data[i+2]-recompressed.data[i+2]);
+    const d=(dr+dg+db)/3;
+    sum+=d; sumSq+=d*d;
+    const amp = Math.min(255, d*AMP);
+    diffData.data[i]   = amp;
+    diffData.data[i+1] = amp*0.62;
+    diffData.data[i+2] = Math.min(255, Math.max(0, amp-190)*2.6);
+    diffData.data[i+3] = 255;
+  }
+  dctx.putImageData(diffData,0,0);
+  const mean = sum/n;
+  const variance = Math.max(0, sumSq/n - mean*mean);
+  const rawScore = clamp(mean*5.4 + Math.sqrt(variance)*1.15, 0, 100);
+
+  return {
+    heatmapURL: diffCanvas.toDataURL('image/png'),
+    originalURL: c1.toDataURL('image/jpeg', 0.92),
+    rawScore, mean, variance
+  };
+}
+
+/* ============================================================
+   FIELD SIMULATION for arbitrary uploads
+   ============================================================ */
+function simulateFieldsFromSeed(seedStr){
+  const rng = mulberry32(fnv1a(seedStr));
+  const name = pick(rng,FIRST_NAMES)+' '+pick(rng,LAST_NAMES);
+  const y = 1965 + Math.floor(rng()*40);
+  const dob = y+'-'+pad(1+Math.floor(rng()*12))+'-'+pad(1+Math.floor(rng()*28));
+  const docNumber = String(Math.floor(rng()*900000000000)+100000000000);
+  const nationality = pick(rng, NATIONALITIES);
+  const docType = pick(rng, DOC_TYPES);
+  const expired = rng() < 0.14;
+  const expiry = expired ? addDays(now0, -Math.floor(rng()*400)-10) : addDays(now0, Math.floor(rng()*2000)+60);
+  const mrzValid = rng() > 0.12;
+  return {name, dob, dobISO:dob, docNumber, nationality, docType, expired, expiry, mrzValid};
+}
+
+/* ============================================================
+   DEMO FLOW
+   ============================================================ */
+const PIPELINE_LABELS = [
+  'Capturing document image',
+  'Running OCR & MRZ parsing (simulated)',
+  'Analyzing image for tampering (live ELA)',
+  'Cross-checking blacklist & watchlists (demo dataset)',
+  'Searching for duplicate identities (demo dataset)',
+  'Computing weighted risk score'
+];
+
+const stageUpload = document.getElementById('demoStage-upload');
+const stageProcessing = document.getElementById('demoStage-processing');
+const stageResults = document.getElementById('demoStage-results');
+const pipelineStepsEl = document.getElementById('pipelineSteps');
+const resultsGrid = document.getElementById('resultsGrid');
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+
+uploadZone.addEventListener('click', ()=> fileInput.click());
+uploadZone.addEventListener('keydown', (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); fileInput.click(); } });
+['dragover'].forEach(ev=> uploadZone.addEventListener(ev, e=>{ e.preventDefault(); uploadZone.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev=> uploadZone.addEventListener(ev, e=>{ e.preventDefault(); uploadZone.classList.remove('drag'); }));
+uploadZone.addEventListener('drop', e=>{
+  const f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if(f) runDemo({file:f});
+});
+fileInput.addEventListener('change', ()=>{
+  if(fileInput.files[0]) runDemo({file:fileInput.files[0]});
+});
+document.getElementById('sampleClean').addEventListener('click', ()=> runDemo({sample:'clean'}));
+document.getElementById('sampleFlagged').addEventListener('click', ()=> runDemo({sample:'flagged'}));
+document.getElementById('scanAnother').addEventListener('click', resetDemo);
+
+/* ============================================================
+   MANUAL ENTRY — live, no-submit-button validation
+   ============================================================ */
+document.querySelectorAll('.mode-btn').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('.mode-btn').forEach(x=> x.setAttribute('aria-selected', x===b ? 'true':'false'));
+    document.getElementById('demoMode-upload').hidden = b.dataset.mode!=='upload';
+    document.getElementById('demoMode-manual').hidden = b.dataset.mode!=='manual';
+    if(b.dataset.mode==='manual') renderManual();
+  });
+});
+
+const manualResultsEl = document.getElementById('manualResults');
+const mName = document.getElementById('mName');
+const mDob = document.getElementById('mDob');
+const mDocType = document.getElementById('mDocType');
+const mNationality = document.getElementById('mNationality');
+const mDocNumber = document.getElementById('mDocNumber');
+const mExpiry = document.getElementById('mExpiry');
+const manualInputs = [mName, mDob, mDocType, mNationality, mDocNumber, mExpiry];
+let manualTimer = null;
+manualInputs.forEach(el=>{
+  // Only listen for 'input' (fires immediately as the user types/selects/picks a date
+  // in every modern browser). We deliberately do NOT also listen for 'change': change
+  // fires on blur, and blurring a field is exactly what happens the instant a user
+  // clicks the "Log to dashboard" button below — re-rendering (and thus replacing)
+  // that button in the middle of the click gesture would swallow the very click that
+  // triggered it.
+  el.addEventListener('input', ()=>{ clearTimeout(manualTimer); manualTimer = setTimeout(renderManual, 150); });
+});
+
+function renderManual(){
+  const name = mName.value.trim();
+  const dobISO = mDob.value;
+  const docType = mDocType.value;
+  const nationality = mNationality.value;
+  const docNumber = mDocNumber.value.trim();
+  const expiryVal = mExpiry.value;
+
+  if(!name && !dobISO && !docNumber){
+    manualResultsEl.innerHTML = '<div class="manual-empty">Fill in a name, document number, or expiry date — the risk assessment updates live as you type, no submit button needed.</div>';
+    return;
+  }
+
+  const blacklistHit = !!docNumber && BLACKLIST.includes(docNumber);
+  const priorMatch = !!name && !!dobISO && DUPLICATE_STORE.some(d=> d.name.toLowerCase()===name.toLowerCase() && d.dob===dobISO);
+  const sessionMatch = !!name && !!dobISO && window.__sessionScans && window.__sessionScans.some(s=> s.name.toLowerCase()===name.toLowerCase() && s.dobISO===dobISO);
+  const duplicateHit = priorMatch || !!sessionMatch;
+  const mrzValid = docNumber ? /^[0-9]{12}$/.test(docNumber) : true;
+  const expired = expiryVal ? (new Date(expiryVal) < now0) : false;
+
+  const risk = computeRisk({ tamperScore:0, blacklistHit, duplicateHit, mrzValid, expired });
+
+  const checks = [
+    { ok: !blacklistHit, label:'Blacklist / watchlist match',
+      sub: blacklistHit ? 'Document number matches a demo watchlist entry' : (docNumber ? 'No match against demo dataset' : 'Enter a document number to check') },
+    { ok: !duplicateHit, label:'Duplicate identity search',
+      sub: duplicateHit ? 'Same name + DOB found under a prior scan' : ((name && dobISO) ? 'No duplicate found in demo scan history' : 'Enter name + date of birth to check') },
+    { ok: mrzValid, label:'Document number format',
+      sub: docNumber ? (mrzValid ? 'Matches expected format (12-digit number)' : 'Does not match the expected format (needs 12 digits)') : 'Enter a document number to check' },
+    { ok: !expired, label:'Document validity',
+      sub: expiryVal ? (expired ? 'Expiry date has passed' : 'Document within validity window') : 'Enter an expiry date to check' },
+  ];
+  const checkRows = checks.map(c=>{
+    const cls = c.ok ? 'check-pass' : 'check-fail';
+    const icon = c.ok ? ICON.check : ICON.x;
+    return `<div class="check-row">
+      <span class="check-icon ${cls}">${icon}</span>
+      <span class="check-text"><b>${c.label} <span class="tag tag-sim" style="margin-left:4px;">LIVE</span></b><span>${c.sub}</span></span>
+    </div>`;
+  }).join('');
+
+  manualResultsEl.innerHTML = `
+    <div class="rcard">${riskGaugeCard(risk, 'No image provided in this mode — image forensics is not included in the score.')}</div>
+    <div class="rcard" style="margin-top:16px;">
+      <h4>Live verification checks</h4>
+      <div class="check-list">${checkRows}</div>
+    </div>
+    <div class="results-actions" style="margin-top:16px;">
+      <button class="btn btn-primary btn-sm" id="manualLog">Log this to the officer dashboard →</button>
+    </div>
+  `;
+  animateRiskArc(manualResultsEl);
+
+  document.getElementById('manualLog').addEventListener('click', ()=>{
+    window.__sessionScans = window.__sessionScans || [];
+    window.__sessionScans.unshift({
+      id: 'M'+Date.now(), time: new Date(), name: name || 'Unnamed traveler', dobISO,
+      docType: docType || 'Passport', country: nationality,
+      score: risk.score, band: risk.band, reasons: risk.reasons
+    });
+    setView('dashboard');
+  });
+}
+
+function resetDemo(){
+  stageResults.hidden = true;
+  stageProcessing.hidden = true;
+  stageUpload.hidden = false;
+  fileInput.value = '';
+}
+
+async function runDemo(source){
+  stageUpload.hidden = true;
+  stageResults.hidden = true;
+  stageProcessing.hidden = false;
+  pipelineStepsEl.innerHTML = PIPELINE_LABELS.map((l,i)=>
+    `<div class="pstep" data-i="${i}"><span class="pi"></span><span class="plabel">${l}</span><span class="ptime"></span></div>`
+  ).join('');
+
+  const t0 = performance.now();
+  const stepEls = [...pipelineStepsEl.children];
+  async function playStep(i, work){
+    stepEls[i].classList.add('active');
+    const delay = 380 + Math.random()*280;
+    await new Promise(r=>setTimeout(r, delay));
+    const result = work ? await work() : null;
+    stepEls[i].classList.remove('active');
+    stepEls[i].classList.add('done');
+    stepEls[i].querySelector('.pi').innerHTML = ICON.check;
+    stepEls[i].querySelector('.ptime').textContent = Math.round(performance.now()-t0)+'ms';
+    return result;
+  }
+
+  // resolve image + identity fields
+  let imgEl, seedStr, fields, sourceLabel, sampleVariant=null;
+  await playStep(0, null);
+
+  if(source.sample){
+    sampleVariant = source.sample;
+    const canvas = document.createElement('canvas');
+    const specData = drawSpecimen(canvas, source.sample);
+    imgEl = await loadImageEl(canvas.toDataURL('image/png'));
+    seedStr = 'sample-'+source.sample;
+    fields = {
+      name: source.sample==='flagged' ? 'Farid Osei' : 'Anika Verma',
+      dob: specData.dob, dobISO: specData.dobISO, docNumber: specData.doc, nationality: specData.nat,
+      docType: 'Passport',
+      expired: source.sample==='flagged',
+      expiry: source.sample==='flagged' ? addDays(now0,-40) : addDays(now0, 1500),
+      mrzValid: source.sample!=='flagged'
+    };
+    sourceLabel = source.sample==='flagged' ? 'Specimen — flagged' : 'Specimen — clean';
+  } else {
+    const file = source.file;
+    const buf = await file.arrayBuffer();
+    let checksum = 0; const bytes = new Uint8Array(buf);
+    const stride = Math.max(1, Math.floor(bytes.length/20000));
+    for(let i=0;i<bytes.length;i+=stride){ checksum = (checksum*31 + bytes[i]) >>> 0; }
+    seedStr = file.name+'|'+file.size+'|'+checksum;
+    fields = simulateFieldsFromSeed(seedStr);
+    sourceLabel = file.name;
+    try{
+      imgEl = await loadImageEl(URL.createObjectURL(file));
+    }catch(e){ imgEl = null; }
+  }
+
+  await playStep(1, null); // OCR/MRZ (simulated, purely presentational delay)
+
+  let ela = null;
+  await playStep(2, async ()=>{
+    try{ ela = await computeELA(imgEl); }catch(e){ ela = null; }
+  });
+
+  let tamperScore;
+  if(sampleVariant==='clean') tamperScore = ela ? Math.min(ela.rawScore, 17) : 8;
+  else if(sampleVariant==='flagged') tamperScore = ela ? Math.max(ela.rawScore, 58) : 62;
+  else tamperScore = ela ? ela.rawScore : 20 + Math.random()*15;
+
+  const docHash = fnv1a(fields.docNumber);
+  const blacklistHit = BLACKLIST.includes(fields.docNumber);
+  await playStep(3, null);
+
+  const priorMatch = DUPLICATE_STORE.some(d=> d.name.toLowerCase()===fields.name.toLowerCase() && d.dob===fields.dobISO);
+  const sessionMatch = window.__sessionScans && window.__sessionScans.some(s=> s.name.toLowerCase()===fields.name.toLowerCase() && s.dobISO===fields.dobISO);
+  const duplicateHit = priorMatch || !!sessionMatch;
+  await playStep(4, null);
+
+  const risk = computeRisk({
+    tamperScore, blacklistHit, duplicateHit,
+    mrzValid: fields.mrzValid, expired: fields.expired
+  });
+  await playStep(5, null);
+
+  await new Promise(r=>setTimeout(r,300));
+  renderResults({fields, sourceLabel, ela, tamperScore, blacklistHit, duplicateHit, risk});
+
+  // log to session + dashboard
+  window.__sessionScans = window.__sessionScans || [];
+  const record = {
+    id: 'S'+Date.now(), time:new Date(), name:fields.name, dobISO:fields.dobISO,
+    docType:fields.docType||'Passport', country:fields.nationality,
+    score:risk.score, band:risk.band, reasons:risk.reasons
+  };
+  window.__sessionScans.unshift(record);
+
+  stageProcessing.hidden = true;
+  stageResults.hidden = false;
+}
+
+function riskGaugeCard(risk, note){
+  const bandColor = `var(${BAND_VAR[risk.band]})`;
+  const bandSoft = `var(${BAND_SOFT_VAR[risk.band]})`;
+  return `<div class="risk-gauge">
+    <div class="risk-arc-wrap">
+      <svg class="risk-arc" viewBox="0 0 180 100">
+        <path d="M10,92 A80,80 0 0 1 170,92" fill="none" stroke="var(--surface-2)" stroke-width="14" stroke-linecap="round"/>
+        <path class="risk-arc-fill" d="M10,92 A80,80 0 0 1 170,92" fill="none" stroke="${bandColor}" stroke-width="14" stroke-linecap="round"
+          stroke-dasharray="251.3" stroke-dashoffset="251.3" data-target="${(251.3*(1-risk.score/100)).toFixed(1)}"/>
+      </svg>
+      <div class="risk-score-overlay">
+        <div class="risk-score tnum" style="color:${bandColor};">${risk.score}</div>
+        <div class="risk-band" style="background:${bandSoft}; color:${bandColor};">${risk.band} risk</div>
+      </div>
+    </div>
+    <div class="risk-decision">${note || BAND_DECISION[risk.band]}</div>
+  </div>`;
+}
+function animateRiskArc(container){
+  requestAnimationFrame(()=>{
+    const fill = container.querySelector('.risk-arc-fill');
+    if(fill) fill.style.strokeDashoffset = fill.dataset.target;
+  });
+}
+
+function contribRow(label, pts, max, color){
+  const pct = clamp((pts/max)*100,0,100);
+  return `<div class="contrib-row">
+    <span>${label}</span>
+    <div class="contrib-track"><div class="contrib-fill" style="width:${pct}%; background:${color};"></div></div>
+    <span class="mono tnum" style="text-align:right;">+${Math.round(pts)}</span>
+  </div>`;
+}
+
+function renderResults(r){
+  const bandColor = `var(${BAND_VAR[r.risk.band]})`;
+  const bandSoft = `var(${BAND_SOFT_VAR[r.risk.band]})`;
+
+  const checks = [
+    {ok: r.tamperScore<45, warn: r.tamperScore>=45&&r.tamperScore<65, label:'Image forensics (ELA)', sub: r.tamperScore<45?'No significant manipulation detected':'Localized inconsistency detected in image', tag:'LIVE', tagClass:'tag-live'},
+    {ok: r.fields.mrzValid, label:'MRZ / field checksum', sub: r.fields.mrzValid?'Checksum and cross-field values consistent':'Checksum mismatch against visual fields', tag:'SIMULATED', tagClass:'tag-sim'},
+    {ok: !r.blacklistHit, label:'Blacklist / watchlist match', sub: r.blacklistHit?'Document number matches a demo watchlist entry':'No match against demo dataset (247 records)', tag:'SIMULATED', tagClass:'tag-sim'},
+    {ok: !r.duplicateHit, label:'Duplicate identity search', sub: r.duplicateHit?'Same name + DOB found under a prior scan':'No duplicate found in demo scan history', tag:'SIMULATED', tagClass:'tag-sim'},
+    {ok: !r.fields.expired, label:'Document validity', sub: r.fields.expired?'Document expiry date has passed':'Document within validity window', tag:'DERIVED', tagClass:'tag-sim'},
+  ];
+
+  const checkRows = checks.map(c=>{
+    const cls = c.ok ? 'check-pass' : (c.warn ? 'check-warn' : 'check-fail');
+    const icon = c.ok ? ICON.check : (c.warn ? ICON.warn : ICON.x);
+    return `<div class="check-row">
+      <span class="check-icon ${cls}">${icon}</span>
+      <span class="check-text"><b>${c.label} <span class="tag ${c.tagClass}" style="margin-left:4px;">${c.tag}</span></b><span>${c.sub}</span></span>
+    </div>`;
+  }).join('');
+
+  const maxPts = {tamper:25, black:30, dup:25, mrz:12, exp:8};
+  const contrib = [
+    contribRow('Image forensics', r.tamperScore*0.25, maxPts.tamper, 'var(--accent-strong)'),
+    contribRow('Blacklist match', r.blacklistHit?30:0, maxPts.black, 'var(--critical)'),
+    contribRow('Duplicate identity', r.duplicateHit?25:0, maxPts.dup, 'var(--serious)'),
+    contribRow('MRZ / field check', r.fields.mrzValid?0:12, maxPts.mrz, 'var(--warning)'),
+    contribRow('Document validity', r.fields.expired?8:0, maxPts.exp, 'var(--ink-3)'),
+  ].join('');
+
+  const elaHTML = r.ela ? `
+    <div class="ela-wrap">
+      <div class="ela-frame"><img src="${r.ela.originalURL}" alt="Document image"/><span>Original</span></div>
+      <div class="ela-frame"><img src="${r.ela.heatmapURL}" alt="Error level analysis heatmap"/><span>ELA heatmap</span></div>
+    </div>` : `<p style="font-size:13px;color:var(--ink-3);">Image forensics unavailable for this file.</p>`;
+
+  resultsGrid.innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:16px;">
+      <div class="rcard">
+        <h4>Risk assessment</h4>
+        ${riskGaugeCard(r.risk)}
+      </div>
+      <div class="rcard">
+        <h4>Extracted fields <span class="tag tag-sim">SIMULATED OCR</span></h4>
+        <div class="field-list">
+          <div class="field-row"><span class="fk">Source</span><span class="fv">${r.sourceLabel}</span></div>
+          <div class="field-row"><span class="fk">Name</span><span class="fv">${r.fields.name}</span></div>
+          <div class="field-row"><span class="fk">Date of birth</span><span class="fv">${r.fields.dob}</span></div>
+          <div class="field-row"><span class="fk">Document no.</span><span class="fv">${r.fields.docNumber}</span></div>
+          <div class="field-row"><span class="fk">Nationality</span><span class="fv">${r.fields.nationality}</span></div>
+          <div class="field-row"><span class="fk">Expiry</span><span class="fv">${fmtDate(new Date(r.fields.expiry))}</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:16px;">
+      <div class="rcard">
+        <h4>Image forensics <span class="tag tag-live">LIVE — COMPUTED IN BROWSER</span></h4>
+        ${elaHTML}
+        <p style="font-size:12px; color:var(--ink-3); margin-top:10px; line-height:1.5;">Error-level analysis re-compresses the image and diffs it against the original; brighter regions were re-encoded at a different quality than their surroundings, a common signature of localized edits.</p>
+      </div>
+      <div class="rcard">
+        <h4>Verification checks</h4>
+        <div class="check-list">${checkRows}</div>
+      </div>
+      <div class="rcard">
+        <h4>Score breakdown</h4>
+        <div class="contrib-list">${contrib}</div>
+      </div>
+    </div>
+  `;
+
+  requestAnimationFrame(()=>{
+    const fill = resultsGrid.querySelector('.risk-arc-fill');
+    if(fill) fill.style.strokeDashoffset = fill.dataset.target;
+  });
+}
+
+/* ============================================================
+   DASHBOARD RENDERING
+   ============================================================ */
+function combinedScans(){
+  const session = (window.__sessionScans||[]);
+  return session.concat(scanLog).sort((a,b)=>b.time-a.time);
+}
+
+function statCard(label, value, delta){
+  return `<div class="stat-card">
+    <div class="label">${label}</div>
+    <div class="value tnum">${value}</div>
+    ${delta?`<div class="delta ${delta.up?'delta-up':'delta-down'}">${delta.up?'▲':'▼'} ${delta.text}</div>`:''}
+  </div>`;
+}
+
+function renderStatGrid(all){
+  const today = all.length;
+  const flagged = all.filter(s=>s.band==='High'||s.band==='Critical').length;
+  const flagRate = today ? Math.round((flagged/today)*100) : 0;
+  const avgMs = 2100 + (window.__sessionScans||[]).length*40;
+  document.getElementById('statGrid').innerHTML = [
+    statCard('Total scans today', (today+312).toLocaleString(), {up:true, text:'+'+ (window.__sessionScans||[]).length +' this session'}),
+    statCard('Flagged (high/critical)', flagged, {up:flagged>0, text: flagRate+'% of session scans'}),
+    statCard('Avg. processing time', (avgMs/1000).toFixed(1)+'s', {up:false, text:'target < 8s'}),
+    statCard('Active alerts', all.filter(s=>s.band==='Critical').length, {up:true, text:'awaiting officer review'})
+  ].join('');
+}
+
+function renderVolumeChart(){
+  const el = document.getElementById('volumeChart');
+  const W=520,H=200,pad={l:32,r:12,t:14,b:26};
+  const vals = volumeSeed.map(d=>d.count);
+  const max = Math.max(...vals)*1.15;
+  const x = i => pad.l + (i/(volumeSeed.length-1))*(W-pad.l-pad.r);
+  const y = v => H-pad.b - (v/max)*(H-pad.t-pad.b);
+  const linePts = volumeSeed.map((d,i)=>`${x(i)},${y(d.count)}`).join(' ');
+  const areaPts = `${x(0)},${H-pad.b} ${linePts} ${x(volumeSeed.length-1)},${H-pad.b}`;
+  const gridYs = [0,0.5,1].map(f=> pad.t + f*(H-pad.t-pad.b));
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;overflow:visible;" role="img" aria-label="Scan volume over the last 14 days">
+    <defs><linearGradient id="volGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="var(--seq-500)" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="var(--seq-500)" stop-opacity="0"/>
+    </linearGradient></defs>`;
+  gridYs.forEach(gy=> svg += `<line x1="${pad.l}" y1="${gy}" x2="${W-pad.r}" y2="${gy}" stroke="var(--grid-line)" stroke-width="1"/>`);
+  svg += `<polygon points="${areaPts}" fill="url(#volGrad)"/>`;
+  svg += `<polyline points="${linePts}" fill="none" stroke="var(--seq-500)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  const last = volumeSeed[volumeSeed.length-1];
+  svg += `<circle cx="${x(volumeSeed.length-1)}" cy="${y(last.count)}" r="4" fill="var(--seq-500)" stroke="var(--chart-surface)" stroke-width="2"/>`;
+  volumeSeed.forEach((d,i)=>{
+    svg += `<circle data-i="${i}" cx="${x(i)}" cy="${y(d.count)}" r="9" fill="transparent" class="vhit"/>`;
+  });
+  svg += `<text x="${pad.l}" y="${H-8}" font-family="var(--font-mono)" font-size="9.5" fill="var(--ink-3)">${fmtDate(volumeSeed[0].date)}</text>`;
+  svg += `<text x="${W-pad.r}" y="${H-8}" text-anchor="end" font-family="var(--font-mono)" font-size="9.5" fill="var(--ink-3)">${fmtDate(last.date)}</text>`;
+  svg += `</svg><div class="tooltip" id="volTip"></div>`;
+  el.innerHTML = svg;
+
+  const tip = document.getElementById('volTip');
+  el.querySelectorAll('.vhit').forEach(c=>{
+    c.addEventListener('mouseenter', (e)=>{
+      const i = +c.dataset.i; const d = volumeSeed[i];
+      tip.textContent = fmtDate(d.date)+' — '+d.count+' scans';
+      tip.classList.add('show');
+    });
+    c.addEventListener('mousemove', (e)=>{
+      const rect = el.getBoundingClientRect();
+      tip.style.left = (e.clientX-rect.left)+'px';
+      tip.style.top = (e.clientY-rect.top)+'px';
+    });
+    c.addEventListener('mouseleave', ()=> tip.classList.remove('show'));
+  });
+}
+
+function renderBandChart(all){
+  const bands = ['Low','Medium','High','Critical'];
+  const counts = bands.map(b=> all.filter(s=>s.band===b).length);
+  const max = Math.max(...counts,1);
+  const W=380,H=170,barH=24,gap=18,top=8;
+  const trackX=78, trackW=W-trackX-38;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;" role="img" aria-label="Scans by risk band">`;
+  bands.forEach((b,i)=>{
+    const y = top + i*(barH+gap);
+    const barW = Math.max(4, (counts[i]/max)*trackW);
+    svg += `<text x="0" y="${y+barH/2+4}" font-family="var(--font-body)" font-size="12" fill="var(--ink-2)">${b}</text>`;
+    svg += `<rect x="${trackX}" y="${y}" width="${trackW}" height="${barH}" rx="5" fill="var(--grid-line)"/>`;
+    svg += `<rect x="${trackX}" y="${y}" width="${barW}" height="${barH}" rx="5" fill="var(${BAND_VAR[b]})"/>`;
+    svg += `<text x="${W-4}" y="${y+barH/2+4}" text-anchor="end" font-family="var(--font-mono)" font-size="12" fill="var(--ink)" class="tnum">${counts[i]}</text>`;
+  });
+  svg += `</svg>`;
+  document.getElementById('bandChart').innerHTML = svg;
+}
+
+function renderReasonList(all){
+  const reasonCounts = {};
+  all.forEach(s=> (s.reasons||[]).forEach(r=> reasonCounts[r] = (reasonCounts[r]||0)+1));
+  const entries = Object.entries(reasonCounts).sort((a,b)=>b[1]-a[1]);
+  const max = Math.max(...entries.map(e=>e[1]),1);
+  const el = document.getElementById('reasonList');
+  if(!entries.length){ el.innerHTML = '<p style="font-size:13px;color:var(--ink-3);">No flag reasons recorded yet — run a scan in the live demo.</p>'; return; }
+  el.innerHTML = entries.map(([label,count])=>`
+    <div class="reason-row">
+      <div class="rlabel"><span>${label}</span><span class="tnum">${count}</span></div>
+      <div class="reason-track"><div class="reason-fill" style="width:${(count/max)*100}%"></div></div>
+    </div>`).join('');
+}
+
+function renderDocLegend(){
+  document.getElementById('docTypeLegend').innerHTML = DOC_TYPES.map(t=>
+    `<span class="legend-item"><span class="legend-swatch" style="background:var(${DOC_TYPE_VAR[t]})"></span>${t}</span>`
+  ).join('');
+}
+
+function statusPill(band){
+  const icon = band==='Low'?ICON.check : band==='Critical'?ICON.x : ICON.warn;
+  return `<span class="pill" style="background:var(${BAND_SOFT_VAR[band]}); color:var(${BAND_VAR[band]});">${icon}${band}</span>`;
+}
+
+function renderTable(all){
+  const rows = all.slice(0,14);
+  const sessionIds = new Set((window.__sessionScans||[]).map(s=>s.id));
+  document.getElementById('scansTbody').innerHTML = rows.map(s=>`
+    <tr class="${sessionIds.has(s.id)?'new-row':''}">
+      <td class="mono tnum">${fmtTime(new Date(s.time))}</td>
+      <td>${s.name}</td>
+      <td><span class="doc-tag"><span class="doc-dot" style="background:var(${DOC_TYPE_VAR[s.docType]||'--cat-5'})"></span>${s.docType}</span></td>
+      <td>${s.country}</td>
+      <td class="mono tnum">${s.score}</td>
+      <td>${statusPill(s.band)}</td>
+    </tr>`).join('');
+}
+
+function renderDashboard(){
+  const all = combinedScans();
+  renderStatGrid(all);
+  renderVolumeChart();
+  renderBandChart(all);
+  renderReasonList(all);
+  renderDocLegend();
+  renderTable(all);
+}
+
+/* initial paint if dashboard happens to be default (it isn't, but keep data ready) */
+window.__sessionScans = window.__sessionScans || [];
+
+})();
+</script>
+</body>
+</html>
