@@ -102,24 +102,34 @@ img{ max-width:100%; display:block; }
   background:rgba(10,6,18,0.72); border-bottom:1px solid var(--border);
   backdrop-filter:saturate(120%) blur(10px);
 }
-.topbar-inner{ display:flex; align-items:center; gap:24px; height:64px; }
+.topbar-inner{ display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:24px; height:64px; }
 .brand{ display:flex; align-items:center; gap:10px; font-family:var(--font-display); font-weight:700; font-size:19px; letter-spacing:0.01em; flex-shrink:0; }
 .brand-mark{ width:26px; height:26px; flex-shrink:0; }
 .brand small{ font-family:var(--font-mono); font-weight:400; font-size:10.5px; color:var(--ink-3); letter-spacing:0.05em; margin-left:2px; }
-.tabs{ display:flex; gap:22px; margin-left:auto; align-items:center; }
+.nav-cta-wrap{ justify-self:end; }
+.tabs{ position:relative; display:flex; gap:22px; align-items:center; justify-self:center; }
+.tab-indicator{
+  position:absolute; bottom:0; height:2px; border-radius:2px; background:var(--accent-strong);
+  transition:left .3s cubic-bezier(.4,0,.2,1), width .3s cubic-bezier(.4,0,.2,1), opacity .2s ease;
+  opacity:0;
+}
 .tab-btn{
   appearance:none; border:none; background:transparent; color:var(--ink-2);
   font-size:13px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; padding:8px 2px; cursor:pointer;
   display:flex; align-items:center; gap:7px; position:relative; transition:color .15s;
 }
-.tab-btn::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:2px; border-radius:2px; background:var(--accent-strong); transform:scaleX(0); transition:transform .2s ease; }
 .tab-btn:hover{ color:var(--ink); }
 .tab-btn[aria-selected="true"]{ color:var(--ink); }
-.tab-btn[aria-selected="true"]::after{ transform:scaleX(1); }
 .tab-dot{ display:none; }
+@media (max-width:900px){
+  .topbar-inner{ grid-template-columns:auto auto; }
+  .nav-cta-wrap{ display:none; }
+}
 @media (max-width:760px){
+  .topbar-inner{ grid-template-columns:1fr; }
   .tabs{ position:fixed; left:0; right:0; bottom:0; margin:0; background:rgba(14,8,24,0.9); border-top:1px solid var(--border);
     padding:8px 10px calc(8px + env(safe-area-inset-bottom)); justify-content:space-around; z-index:50; backdrop-filter:blur(10px); }
+  .tab-indicator{ top:0; bottom:auto; height:2px; }
   .tab-btn span.tab-label{ font-size:10.5px; }
   .tab-btn{ flex-direction:column; gap:3px; flex:1; text-transform:none; letter-spacing:0; }
   .nav-cta{ display:none !important; }
@@ -679,11 +689,14 @@ body:not(.loaded) .hero-anim{ opacity:0; transform:translateY(20px); }
       VeriScanx<small>SIH&nbsp;2026</small>
     </div>
     <nav class="tabs" role="tablist" aria-label="Sections">
+      <span class="tab-indicator" aria-hidden="true"></span>
       <button class="tab-btn" role="tab" data-view="overview" aria-selected="true"><span class="tab-dot"></span><span class="tab-label">Overview</span></button>
       <button class="tab-btn" role="tab" data-view="demo" aria-selected="false"><span class="tab-dot"></span><span class="tab-label">Live Demo</span></button>
       <button class="tab-btn" role="tab" data-view="dashboard" aria-selected="false"><span class="tab-dot"></span><span class="tab-label">Dashboard</span></button>
-      <button class="btn btn-primary btn-sm nav-cta" data-goto="demo">Try Live Demo</button>
     </nav>
+    <div class="nav-cta-wrap">
+      <button class="btn btn-primary btn-sm nav-cta" data-goto="demo">Try Live Demo</button>
+    </div>
   </div>
 </header>
 
@@ -1385,6 +1398,16 @@ function checkRegistry(docNumber, name, dobISO){
    VIEW ROUTER
    ============================================================ */
 const views = ["overview","demo","dashboard"];
+function moveTabIndicator(name){
+  const nav = document.querySelector('.tabs');
+  const indicator = document.querySelector('.tab-indicator');
+  if(!nav || !indicator) return;
+  const btn = nav.querySelector('.tab-btn[data-view="'+name+'"]');
+  if(!btn){ indicator.style.opacity = '0'; return; }
+  indicator.style.left = btn.offsetLeft + 'px';
+  indicator.style.width = btn.offsetWidth + 'px';
+  indicator.style.opacity = '1';
+}
 function setView(name, opts){
   opts = opts || {};
   views.forEach(v=>{
@@ -1393,11 +1416,20 @@ function setView(name, opts){
   document.querySelectorAll('.tab-btn').forEach(b=>{
     b.setAttribute('aria-selected', b.dataset.view===name ? 'true':'false');
   });
+  moveTabIndicator(name);
   if(!opts.silent) window.scrollTo({top:0, behavior:'auto'});
   if(name==='dashboard') renderDashboard();
 }
 document.querySelectorAll('.tab-btn').forEach(b=>{
   b.addEventListener('click', ()=> setView(b.dataset.view));
+});
+window.addEventListener('load', ()=>{
+  const active = document.querySelector('.tab-btn[aria-selected="true"]');
+  moveTabIndicator(active ? active.dataset.view : 'overview');
+});
+window.addEventListener('resize', ()=>{
+  const active = document.querySelector('.tab-btn[aria-selected="true"]');
+  moveTabIndicator(active ? active.dataset.view : 'overview');
 });
 document.querySelectorAll('[data-goto]').forEach(b=>{
   b.addEventListener('click', ()=> setView(b.dataset.goto));
