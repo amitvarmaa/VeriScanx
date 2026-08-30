@@ -92,6 +92,8 @@ img{ max-width:100%; display:block; }
   color:var(--accent-strong); display:flex; align-items:center; gap:10px; margin-bottom:14px;
 }
 .eyebrow::before{ content:""; width:22px; height:1px; background:var(--accent-strong); display:inline-block; }
+.exhibit-open-link{ margin-left:auto; color:var(--ink-3); text-decoration:none; font-weight:600; opacity:.7; transition:opacity .15s, color .15s; flex-shrink:0; }
+.exhibit-open-link:hover{ opacity:1; color:var(--accent-strong); }
 
 /* ============================= TOPBAR ============================= */
 .topbar{
@@ -748,7 +750,7 @@ body:not(.loaded) .hero-anim{ opacity:0; transform:translateY(20px); }
   <div class="section">
     <div class="wrap">
       <div class="section-head">
-        <div class="eyebrow">Exhibit 01 — The problem</div>
+        <div class="eyebrow">Exhibit 01 — The problem<a class="exhibit-open-link" href="exhibits/01-the-problem.html">Open as page &#8599;</a></div>
         <h2>Manual document checks don't scale, and forged documents don't announce themselves.</h2>
         <p>Immigration counters and airport kiosks still lean on a trained eye and a UV lamp. That's slow at peak hours, inconsistent across shifts, and easy to beat with a well-made forgery, a photo-swapped passport, or a document that's already on a blacklist under a different alias.</p>
       </div>
@@ -775,7 +777,7 @@ body:not(.loaded) .hero-anim{ opacity:0; transform:translateY(20px); }
   <div class="section" id="pipeline">
     <div class="wrap">
       <div class="section-head">
-        <div class="eyebrow">Exhibit 02 — How it works</div>
+        <div class="eyebrow">Exhibit 02 — How it works<a class="exhibit-open-link" href="exhibits/02-how-it-works.html">Open as page &#8599;</a></div>
         <h2>One scan, six checks, one decision.</h2>
         <p>Every document that comes through the kiosk or counter scanner moves through the same pipeline, so the outcome is repeatable regardless of who's on shift.</p>
       </div>
@@ -793,7 +795,7 @@ body:not(.loaded) .hero-anim{ opacity:0; transform:translateY(20px); }
   <div class="section" id="cross-checks">
     <div class="wrap">
       <div class="section-head">
-        <div class="eyebrow">Exhibit 03 — Real-time cross-checks</div>
+        <div class="eyebrow">Exhibit 03 — Real-time cross-checks<a class="exhibit-open-link" href="exhibits/03-cross-checks.html">Open as page &#8599;</a></div>
         <h2>One decision, informed by every database that matters.</h2>
         <p>A risk score is only as good as what it's checked against. Every scan fans out to the records that could catch a fraud attempt — before the officer even looks up.</p>
       </div>
@@ -838,7 +840,7 @@ body:not(.loaded) .hero-anim{ opacity:0; transform:translateY(20px); }
       <div class="light-panel">
         <div class="light-panel-glow"></div>
         <div class="section-head" style="max-width:680px;">
-          <div class="eyebrow">Exhibit 05 — Where it fits</div>
+          <div class="eyebrow">Exhibit 05 — Where it fits<a class="exhibit-open-link" href="exhibits/05-where-it-fits.html">Open as page &#8599;</a></div>
           <h2>Built for every place a document gets checked at the border.</h2>
         </div>
         <div class="feature-grid">
@@ -874,7 +876,7 @@ body:not(.loaded) .hero-anim{ opacity:0; transform:translateY(20px); }
   <div class="section">
     <div class="wrap">
       <div class="section-head">
-        <div class="eyebrow">Exhibit 06 — What it catches</div>
+        <div class="eyebrow">Exhibit 06 — What it catches<a class="exhibit-open-link" href="exhibits/06-what-it-catches.html">Open as page &#8599;</a></div>
         <h2>Built around the ways travel documents actually get faked.</h2>
       </div>
       <div class="feature-grid">
@@ -891,7 +893,7 @@ body:not(.loaded) .hero-anim{ opacity:0; transform:translateY(20px); }
   <div class="section">
     <div class="wrap">
       <div class="section-head">
-        <div class="eyebrow">Exhibit 07 — Under the hood</div>
+        <div class="eyebrow">Exhibit 07 — Under the hood<a class="exhibit-open-link" href="exhibits/07-under-the-hood.html">Open as page &#8599;</a></div>
         <h2>Six modules, one pipeline.</h2>
         <p>Each check runs independently and contributes its own weighted points to the final risk score — an officer can see exactly which module flagged what, not just a pass/fail.</p>
       </div>
@@ -934,7 +936,7 @@ body:not(.loaded) .hero-anim{ opacity:0; transform:translateY(20px); }
   <div class="section">
     <div class="wrap">
       <div class="section-head">
-        <div class="eyebrow">Exhibit 08 — Architecture</div>
+        <div class="eyebrow">Exhibit 08 — Architecture<a class="exhibit-open-link" href="exhibits/08-architecture.html">Open as page &#8599;</a></div>
         <h2>Five layers, one pipeline.</h2>
       </div>
       <div class="arch">
@@ -960,7 +962,7 @@ body:not(.loaded) .hero-anim{ opacity:0; transform:translateY(20px); }
       <div class="light-panel">
         <div class="light-panel-glow"></div>
         <div class="section-head">
-          <div class="eyebrow">Exhibit 09 — Projected impact</div>
+          <div class="eyebrow">Exhibit 09 — Projected impact<a class="exhibit-open-link" href="exhibits/09-projected-impact.html">Open as page &#8599;</a></div>
           <h2>What we're targeting for the pilot.</h2>
           <p>These are design targets for the prototype, not measured production figures — they're what the pipeline above is architected to hit.</p>
         </div>
@@ -977,7 +979,7 @@ body:not(.loaded) .hero-anim{ opacity:0; transform:translateY(20px); }
   <div class="section">
     <div class="wrap">
       <div class="section-head">
-        <div class="eyebrow">Exhibit 10 — Questions officers ask</div>
+        <div class="eyebrow">Exhibit 10 — Questions officers ask<a class="exhibit-open-link" href="exhibits/10-faq.html">Open as page &#8599;</a></div>
         <h2>Frequently asked questions.</h2>
       </div>
       <div class="faq-list">
@@ -1008,7 +1010,7 @@ body:not(.loaded) .hero-anim{ opacity:0; transform:translateY(20px); }
   <div class="section">
     <div class="wrap">
       <div class="section-head">
-        <div class="eyebrow">Exhibit 11 — Team</div>
+        <div class="eyebrow">Exhibit 11 — Team<a class="exhibit-open-link" href="exhibits/11-team.html">Open as page &#8599;</a></div>
         <h2>Built for SIH 2026.</h2>
       </div>
       <div class="team-grid">

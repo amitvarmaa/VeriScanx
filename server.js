@@ -1256,6 +1256,12 @@ __require("routes/stats")(router);
 const publicDir = path.join(__dirname, "public");
 const serveFile = serveStatic(publicDir);
 
+// Standalone per-Exhibit pages generated from index.html (see build_exhibits.py),
+// linked from each Exhibit's "Open as page" link on the public site. Purely
+// additive — index.html's own single-page tab-switching demo is untouched.
+const exhibitsDir = path.join(__dirname, "exhibits");
+const serveExhibit = serveStatic(exhibitsDir);
+
 // The custom domain veriscanx.in is meant to show the public marketing/demo
 // site (root index.html), not the officer panel — the officer panel stays
 // reachable at its own Render URL (and at /login.html on any host, for
@@ -1281,6 +1287,11 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     fs.createReadStream(PUBLIC_SITE_INDEX).pipe(res);
     return;
+  }
+
+  if (pathname.startsWith("/exhibits/") && fs.existsSync(exhibitsDir)) {
+    const rel = pathname.slice("/exhibits".length);
+    if (serveExhibit(req, res, rel)) return;
   }
 
   if (pathname.startsWith("/api/")) {
