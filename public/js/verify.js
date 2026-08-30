@@ -520,18 +520,32 @@ window.VeriScanxVerify = (function(){
     const findingsHTML = report.findings.length
       ? `<ul>${report.findings.map(f=>`<li>+${f.points} pts — ${escapeHtml(f.text)}</li>`).join('')}</ul>`
       : '<p style="font-size:12px;color:#555;">No contributing findings — every check passed.</p>';
+    // Traveler photo for the report header: prefer the matched national-registry
+    // photo (authoritative), then fall back to the uploaded document image itself
+    // (which shows the printed photo for a real document). Specimen illustrations
+    // have no real face, so those show no photo rather than a misleading one.
+    const photoSrc = (r.registryEntry && r.registryEntry.photo) ? r.registryEntry.photo
+      : (r.ela && r.ela.originalURL) ? r.ela.originalURL
+      : null;
+    const photoLabel = (r.registryEntry && r.registryEntry.photo) ? 'National registry photo' : 'From uploaded document image';
+    const photoHTML = photoSrc
+      ? `<div class="pr-photo-wrap"><img class="pr-photo" src="${photoSrc}" alt="Traveler photo"/><div class="pr-meta" style="margin-top:4px;">${escapeHtml(photoLabel)}</div></div>`
+      : `<div class="pr-photo-wrap"><div class="pr-photo pr-photo-empty">No photo available</div></div>`;
     return `
       <h1>VeriScanx — Investigation Report</h1>
       <div class="pr-meta">Generated ${report.generatedAt.toLocaleString()} · Source: ${escapeHtml(r.sourceLabel||'—')} · Scan #${rec.id}</div>
       <h2>Risk assessment</h2>
-      <table>
-        <tr><td>Risk score</td><td><b>${rec.riskScore} / 100</b> — <span class="pr-band" style="background:${bandColorHex}22; color:${bandColorHex};">${rec.riskBand} risk</span></td></tr>
-        <tr><td>Traveler</td><td>${escapeHtml(rec.travelerName)}</td></tr>
-        <tr><td>Date of birth</td><td>${escapeHtml(rec.dob)}</td></tr>
-        <tr><td>Document type</td><td>${escapeHtml(rec.docType||'Passport')}</td></tr>
-        <tr><td>Document number</td><td>${escapeHtml(rec.docNumber||'—')}</td></tr>
-        <tr><td>Nationality</td><td>${escapeHtml(rec.nationality||'—')}</td></tr>
-      </table>
+      <div class="pr-summary-row">
+        ${photoHTML}
+        <table style="flex:1;">
+          <tr><td>Risk score</td><td><b>${rec.riskScore} / 100</b> — <span class="pr-band" style="background:${bandColorHex}22; color:${bandColorHex};">${rec.riskBand} risk</span></td></tr>
+          <tr><td>Traveler</td><td>${escapeHtml(rec.travelerName)}</td></tr>
+          <tr><td>Date of birth</td><td>${escapeHtml(rec.dob)}</td></tr>
+          <tr><td>Document type</td><td>${escapeHtml(rec.docType||'Passport')}</td></tr>
+          <tr><td>Document number</td><td>${escapeHtml(rec.docNumber||'—')}</td></tr>
+          <tr><td>Nationality</td><td>${escapeHtml(rec.nationality||'—')}</td></tr>
+        </table>
+      </div>
       <h2>AI Investigation Copilot summary</h2>
       <p style="font-size:12.5px;">${escapeHtml(report.opening)}</p>
       <p style="font-size:12px;color:#333;">${escapeHtml(report.body)}</p>
