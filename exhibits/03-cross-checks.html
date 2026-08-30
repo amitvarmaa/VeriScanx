@@ -703,6 +703,69 @@ html[data-slide-dir] #app{ view-transition-name: view-content; }
 @keyframes vsx-slide-out-rev{ to{ transform:translateX(4%); opacity:0; } }
 @keyframes vsx-slide-in-rev{ from{ transform:translateX(-4%); opacity:0; } }
 
+/* ============================= AI ASSISTANT WIDGET ============================= */
+#vsxBotLauncher{
+  position:fixed; right:22px; bottom:22px; z-index:80;
+  width:56px; height:56px; border-radius:50%;
+  background:linear-gradient(135deg, var(--accent-strong), var(--accent-b));
+  color:#1a0d02; display:flex; align-items:center; justify-content:center;
+  box-shadow:0 10px 30px -8px rgba(245,86,14,0.55), 0 0 0 1px rgba(255,255,255,0.06);
+  cursor:pointer; transition:transform .18s ease, box-shadow .18s ease;
+}
+#vsxBotLauncher svg{ width:24px; height:24px; }
+#vsxBotLauncher:hover{ transform:translateY(-2px) scale(1.04); box-shadow:0 14px 34px -8px rgba(245,86,14,0.65), 0 0 0 1px rgba(255,255,255,0.08); }
+#vsxBotBadge{
+  position:absolute; top:-3px; right:-3px; min-width:18px; height:18px; padding:0 4px;
+  border-radius:999px; background:#E23A3A; color:#fff; font-size:10.5px; font-weight:700;
+  display:flex; align-items:center; justify-content:center; border:2px solid var(--bg);
+}
+#vsxBotPanel{
+  position:fixed; right:22px; bottom:90px; z-index:80;
+  width:340px; max-width:calc(100vw - 32px); height:460px; max-height:calc(100vh - 130px);
+  background:var(--plane); border:1px solid var(--border-strong); border-radius:16px;
+  box-shadow:0 24px 60px -12px rgba(0,0,0,0.55);
+  display:flex; flex-direction:column; overflow:hidden;
+  opacity:0; transform:translateY(12px) scale(.98); pointer-events:none;
+  transition:opacity .18s ease, transform .18s ease;
+}
+#vsxBotPanel.open{ opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
+#vsxBotHead{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:14px 14px; border-bottom:1px solid var(--border); flex-shrink:0;
+  background:linear-gradient(180deg, rgba(245,86,14,0.08), transparent);
+}
+#vsxBotHeadInfo{ display:flex; align-items:center; gap:10px; }
+#vsxBotHeadInfo b{ display:block; font-size:13.5px; }
+#vsxBotHeadInfo span{ display:block; font-size:11px; color:var(--ink-3); font-family:var(--font-mono); }
+#vsxBotClose{ appearance:none; border:none; background:transparent; color:var(--ink-3); cursor:pointer; padding:4px; border-radius:6px; }
+#vsxBotClose:hover{ color:var(--ink); background:var(--surface); }
+#vsxBotMsgs{ flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:10px; }
+.vsxMsg{ max-width:84%; padding:9px 12px; border-radius:12px; font-size:13px; line-height:1.45; }
+.vsxMsg-bot{ align-self:flex-start; background:var(--surface); border:1px solid var(--border); border-bottom-left-radius:4px; color:var(--ink-2); }
+.vsxMsg-user{ align-self:flex-end; background:var(--accent-strong); color:#1a0d02; border-bottom-right-radius:4px; font-weight:500; }
+#vsxBotChips{ display:flex; flex-wrap:wrap; gap:6px; padding:0 14px 12px; flex-shrink:0; }
+.vsxChip{
+  appearance:none; border:1px solid var(--border); background:var(--surface); color:var(--ink-2);
+  font-size:11px; padding:6px 10px; border-radius:999px; cursor:pointer; transition:border-color .15s, color .15s;
+}
+.vsxChip:hover{ border-color:var(--accent-strong); color:var(--ink); }
+#vsxBotForm{ display:flex; gap:8px; padding:12px 14px; border-top:1px solid var(--border); flex-shrink:0; }
+#vsxBotInput{
+  flex:1; background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  color:var(--ink); font-size:13px; padding:9px 12px; outline:none; font-family:inherit;
+}
+#vsxBotInput:focus{ border-color:var(--accent-strong); }
+#vsxBotForm button[type="submit"]{
+  appearance:none; border:none; border-radius:10px; width:38px; flex-shrink:0;
+  background:var(--accent-strong); color:#1a0d02; cursor:pointer; display:flex; align-items:center; justify-content:center;
+}
+@media (max-width:760px){
+  /* Clear the fixed bottom tab bar (see .tabs in the TOPBAR mobile breakpoint). */
+  #vsxBotLauncher{ right:16px; bottom:calc(70px + env(safe-area-inset-bottom)); width:50px; height:50px; }
+  #vsxBotLauncher svg{ width:22px; height:22px; }
+  #vsxBotPanel{ right:12px; left:12px; width:auto; bottom:calc(132px + env(safe-area-inset-bottom)); max-height:calc(100vh - 190px); }
+}
+
 .exhibit-crumb{ font-family:var(--font-mono); font-size:12.5px; color:var(--ink-3); text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
 .exhibit-crumb:hover{ color:var(--ink); }
 .exhibit-pager{ display:flex; justify-content:space-between; gap:16px; margin:56px 0 72px; padding-top:24px; border-top:1px solid var(--border); }
@@ -805,6 +868,139 @@ html[data-slide-dir] #app{ view-transition-name: view-content; }
       </div>
     </div>
   </footer>
+<!-- ============================================================
+     AI ASSISTANT WIDGET — bottom-right chat bubble. Rule-based
+     keyword matching over a small on-page knowledge base (same
+     "no external AI call" approach as the Investigation Copilot
+     elsewhere on this site) — no network requests, works offline.
+     ============================================================ -->
+<div id="vsxBotLauncher" aria-label="Open VeriScanx assistant" role="button" tabindex="0">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 100 18 9 9 0 000-18z" opacity="0"/><path d="M4 13a8 8 0 1116 0c0 1.2-.3 2.3-.8 3.3L20 20l-3.9-1.1c-1 .5-2.1.8-3.3.8a8 8 0 01-8-8z"/><circle cx="9" cy="13" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="13" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="13" r="1" fill="currentColor" stroke="none"/></svg>
+  <span id="vsxBotBadge">1</span>
+</div>
+
+<div id="vsxBotPanel" aria-hidden="true">
+  <div id="vsxBotHead">
+    <div id="vsxBotHeadInfo">
+      <svg width="20" height="20" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M13 2 L23 6 V13 C23 19 18.5 23 13 24.5 C7.5 23 3 19 3 13 V6 Z" stroke="var(--accent-strong)" stroke-width="1.6" fill="var(--accent-soft)"/><path d="M8.5 13.2 L11.5 16.2 L18 9.5" stroke="var(--accent-strong)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+      <div><b>VeriScanx Assistant</b><span>Ask about the project</span></div>
+    </div>
+    <button id="vsxBotClose" aria-label="Close assistant" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <div id="vsxBotMsgs"></div>
+  <div id="vsxBotChips"></div>
+  <form id="vsxBotForm">
+    <input id="vsxBotInput" type="text" autocomplete="off" placeholder="Ask a question…" maxlength="200" />
+    <button type="submit" aria-label="Send">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+    </button>
+  </form>
+</div>
+
+<script>
+(function(){
+  var KB = [
+    { q: /what (is|does).*(veriscanx|it do|this)|about veriscanx|tell me about/i,
+      a: "VeriScanx is a computer-vision pipeline that inspects passports and ID documents for tampering, cross-checks passenger details against government and international records, catches duplicate or blacklisted identities, and hands the counter officer one clear risk score — all in seconds." },
+    { q: /real (govt|government) database|connect.*(government|database)|actual (govt|government)/i,
+      a: "Not in this demo — the public site and Live Demo tab query a small illustrative dataset so anyone can try it without touching a real system. The officer panel is architected against the same schema a real registry/blacklist connector would use, so wiring in an actual government feed is a connector swap, not a redesign." },
+    { q: /connection drop|offline|no internet|database down/i,
+      a: "Image forensics and MRZ checksum validation run entirely client-side, so they still work offline. Checks that need a live lookup (blacklist, registry, prior-scan history) are clearly marked as unavailable rather than silently skipped, and the document is routed to manual review instead of guessing." },
+    { q: /override|officer decide|human (decision|override)/i,
+      a: "Yes — the risk score is a recommendation, not an automatic decision. Every override is logged against the officer's account alongside the original score and the reason given, so the audit trail always shows both what the system found and what the human decided." },
+    { q: /document types?|passport|driving licen[cs]e|aadhaar|national id|visa/i,
+      a: "Passports, national ID/Aadhaar-style cards, driving licences, and visas each have their own validation rules (expiry logic, minimum age, validity window) — the pipeline detects the document type and applies the right rule set automatically." },
+    { q: /face verification|liveness|camera|blink/i,
+      a: "Face verification is a separate, optional check the officer can run on top of the risk score, not folded into it. It runs entirely on-device (the camera feed never leaves the browser) with a blink-based liveness check so a printed photo can't pass as a live capture." },
+    { q: /how (fast|quick|long)|verify time|speed/i,
+      a: "The pipeline targets under 8 seconds per document, running 6 independent checks — fast enough for airport kiosk and counter throughput." },
+    { q: /accura|reliab/i,
+      a: "Each of the 6 checks (image forensics, MRZ/ICAO checksum, blacklist match, registry cross-check, face/liveness, duplicate-identity detection) contributes weighted, explainable points to a 0–100 risk score — officers see exactly which check flagged what, not a black-box yes/no." },
+    { q: /module|pipeline|how.*work|check.*run/i,
+      a: "Six modules run per scan: image forensics (ELA), MRZ & ICAO checksum, blacklist & watchlist matching, national registry cross-check, face verification & liveness, and duplicate/mutation detection. See Exhibit 07 — Under the hood for details, or open the Live Demo to watch it run." },
+    { q: /where.*(fit|used|deploy)|kiosk|checkpoint|airport|border/i,
+      a: "Airport & seaport e-gates, land border checkpoints, railway/metro border zones, visa & consulate counters, migration/refugee centers, and event/venue security — see Exhibit 05 — Where it fits for the full breakdown." },
+    { q: /architect|tech stack|built with|technology/i,
+      a: "React frontend, Python/FastAPI backend, OpenCV + Tesseract OCR for image/text processing, an ONNX face-match model, PostgreSQL, and a Redis queue — see Exhibit 08 — Architecture for the full five-layer breakdown." },
+    { q: /pric|cost|buy|purchase/i,
+      a: "VeriScanx is a prototype built for Smart India Hackathon 2026 — it isn't a commercial product yet, so there's no pricing. Everything you see here is a working demo." },
+    { q: /team|who (built|made)|contact|reach|email/i,
+      a: "Built by the VeriScanx team for SIH 2026 — see Exhibit 11 — Team for the full lineup, and the footer for GitHub and contact links." },
+    { q: /try|demo|test it|see it|run it/i,
+      a: "Head to the Live Demo tab — you can upload a document image or try a fictional specimen, and the real image-forensics and MRZ checks will run right in your browser." },
+    { q: /^(hi|hello|hey|yo)\b/i,
+      a: "Hi! I'm the VeriScanx assistant. Ask me what the project does, how the verification pipeline works, where it can be deployed, or how to try the live demo." },
+    { q: /thank/i, a: "You're welcome! Anything else about VeriScanx I can help with?" },
+  ];
+  var FALLBACK = "I'm not sure about that one — try the FAQ (Exhibit 10 — Questions officers ask), or ask me about how the pipeline works, document types, where it's deployed, or the live demo.";
+  var SUGGESTIONS = ["What does VeriScanx do?", "How does the pipeline work?", "Is it connected to real databases?", "How do I try the demo?"];
+
+  var launcher = document.getElementById('vsxBotLauncher');
+  var panel = document.getElementById('vsxBotPanel');
+  var badge = document.getElementById('vsxBotBadge');
+  var msgs = document.getElementById('vsxBotMsgs');
+  var chips = document.getElementById('vsxBotChips');
+  var form = document.getElementById('vsxBotForm');
+  var input = document.getElementById('vsxBotInput');
+  var closeBtn = document.getElementById('vsxBotClose');
+  var opened = false;
+
+  function addMsg(text, who){
+    var row = document.createElement('div');
+    row.className = 'vsxMsg vsxMsg-' + who;
+    row.textContent = text;
+    msgs.appendChild(row);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+  function renderChips(){
+    chips.innerHTML = '';
+    SUGGESTIONS.forEach(function(s){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'vsxChip';
+      b.textContent = s;
+      b.addEventListener('click', function(){ ask(s); });
+      chips.appendChild(b);
+    });
+  }
+  function answerFor(text){
+    for(var i=0;i<KB.length;i++){ if(KB[i].q.test(text)) return KB[i].a; }
+    return FALLBACK;
+  }
+  function ask(text){
+    text = (text||'').trim();
+    if(!text) return;
+    addMsg(text, 'user');
+    input.value = '';
+    setTimeout(function(){
+      addMsg(answerFor(text), 'bot');
+    }, 380);
+  }
+  function openPanel(){
+    opened = true;
+    panel.classList.add('open');
+    panel.setAttribute('aria-hidden', 'false');
+    badge.style.display = 'none';
+    input.focus();
+  }
+  function closePanel(){
+    opened = false;
+    panel.classList.remove('open');
+    panel.setAttribute('aria-hidden', 'true');
+  }
+  launcher.addEventListener('click', function(){ opened ? closePanel() : openPanel(); });
+  launcher.addEventListener('keydown', function(e){ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); opened ? closePanel() : openPanel(); } });
+  closeBtn.addEventListener('click', closePanel);
+  form.addEventListener('submit', function(e){ e.preventDefault(); ask(input.value); });
+
+  if(msgs.children.length === 0){
+    addMsg("Hi! I'm the VeriScanx assistant — ask me anything about the project, the pipeline, or the demo.", 'bot');
+    renderChips();
+  }
+})();
+</script>
 
 </body>
 </html>

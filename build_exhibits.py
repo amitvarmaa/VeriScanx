@@ -66,9 +66,20 @@ def extract_footer():
     e = TEXT.index("</footer>") + len("</footer>")
     return TEXT[s:e]
 
+def extract_bot_widget():
+    """The AI assistant widget (launcher + panel + its own <script>), added
+    near the end of index.html's <body>. Its CSS lives in the shared
+    <style> block (already carried by STYLE_BLOCK) — this just pulls the
+    HTML + script so every standalone Exhibit page also gets the widget."""
+    marker = "<!-- ============================================================\n     AI ASSISTANT WIDGET"
+    s = TEXT.index(marker)
+    e = TEXT.index("</body>", s)
+    return TEXT[s:e].strip()
+
 HEAD_META = extract_head_meta()
 STYLE_BLOCK = extract_style_block()
 FOOTER_HTML = extract_footer()
+BOT_WIDGET_HTML = extract_bot_widget()
 
 # (slug, filename, unique needle text inside the section, page_title)
 EXHIBITS = [
@@ -130,6 +141,7 @@ PAGE_TMPL = '''<!DOCTYPE html>
   </div>
 </main>
 {footer_html}
+{bot_widget}
 {extra_js}
 </body>
 </html>
@@ -176,6 +188,7 @@ for i, (slug, fname, needle, title) in enumerate(EXHIBITS):
         prev_link=prev_link,
         next_link=next_link,
         footer_html=FOOTER_HTML,
+        bot_widget=BOT_WIDGET_HTML,
         extra_js=extra_js,
     )
     out_path = os.path.join(OUT_DIR, fname)
