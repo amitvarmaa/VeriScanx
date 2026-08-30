@@ -35,7 +35,17 @@ function bandFor(score) {
   return "Low";
 }
 
-function computeRisk({ tamperScore, blacklistHit, duplicateHit, mrzValid, expired, registryStatus, qrStatus }) {
+function computeRisk({
+  tamperScore, blacklistHit, duplicateHit, mrzValid, expired, registryStatus, qrStatus,
+  docTypeIssue, anomalyCount, mutationHit,
+}) {
+  // docTypeIssue: null/undefined when the doc-type rule passed, otherwise
+  //   { label, reason } from checkDocTypeRules() — label (short, stable) is
+  //   what goes into reasons[]; the full reason is for detailed UI display.
+  // anomalyCount: number of zero-day anomaly heuristics that tripped (0-3).
+  // mutationHit: fuzzy near-duplicate identity match found (server-only
+  //   addition — the public demo visualizes mutations but doesn't score
+  //   them; the real panel scores them since a real officer needs a number).
   const t = Math.max(0, Math.min(100, Number(tamperScore) || 0));
   let score = 0;
   score += t * 0.25;
@@ -45,6 +55,9 @@ function computeRisk({ tamperScore, blacklistHit, duplicateHit, mrzValid, expire
   score += expired ? 8 : 0;
   score += registryStatus === "mismatch" ? 28 : registryStatus === "unregistered" ? 26 : 0;
   score += qrStatus === "mismatch" ? 24 : 0;
+  score += docTypeIssue ? 10 : 0;
+  score += Math.min(15, (anomalyCount || 0) * 6);
+  score += mutationHit ? 15 : 0;
   score = Math.round(Math.max(0, Math.min(100, score)));
   const band = bandFor(score);
   const reasons = [];
@@ -56,6 +69,9 @@ function computeRisk({ tamperScore, blacklistHit, duplicateHit, mrzValid, expire
   if (registryStatus === "mismatch") reasons.push("Registry identity mismatch");
   else if (registryStatus === "unregistered") reasons.push("Not found in national registry");
   if (qrStatus === "mismatch") reasons.push("QR / chip data contradicts printed identity");
+  if (docTypeIssue) reasons.push(docTypeIssue.label);
+  if (anomalyCount) reasons.push("Zero-day anomaly detected");
+  if (mutationHit) reasons.push("Possible identity mutation (spelling/DOB drift)");
   return { score, band, reasons };
 }
 
@@ -540,6 +556,196 @@ function checkRegistry(docNumber, name, dob) {
 module.exports = { checkRegistry, normalizeDocNum, serializeEntry };
 });
 
+// ---- server/omnisight.js ----
+__define("omnisight", function (module, exports, require) {
+// OmniSight AI — server-side ports of the public demo site's 8 roadmap
+// features, applied for real against the officer panel's live database
+// instead of a single browser session. Kept in its own module (mirrors
+// index.html's own section comments) so it's easy to compare the two.
+"use strict";
+
+/* ============================================================
+   MRZ CHECKSUM VALIDATION — real ICAO Doc 9303 check-digit algorithm,
+   applied to a TD3 (passport-format, 44-char) line 2. Identical algorithm
+   to the public demo site; ported here so the SERVER is the authoritative
+   check (never trust a client-sent mrzValid boolean — see routes/scans.js).
+   ============================================================ */
+function icaoCheckDigit(str) {
+  const weights = [7, 3, 1];
+  let sum = 0;
+  for (let i = 0; i < str.length; i++) {
+    const c = str[i];
+    let v;
+    if (c >= "0" && c <= "9") v = c.charCodeAt(0) - 48;
+    else if (c >= "A" && c <= "Z") v = c.charCodeAt(0) - 55; // A=10 ... Z=35
+    else v = 0; // '<' (filler) and anything unrecognized
+    sum += v * weights[i % 3];
+  }
+  return sum % 10;
+}
+
+function validateMrzLine2(line2) {
+  if (typeof line2 !== "string" || line2.length !== 44) {
+    return { ok: null, supported: false, checks: [] };
+  }
+  const docNumber = line2.slice(0, 9), docCheck = line2[9];
+  const dob = line2.slice(13, 19), dobCheck = line2[19];
+  const expiry = line2.slice(21, 27), expCheck = line2[27];
+  const personal = line2.slice(28, 42), personalCheck = line2[42];
+  const compositeCheck = line2[43];
+  const composite = docNumber + docCheck + dob + dobCheck + expiry + expCheck + personal + personalCheck;
+
+  const checks = [
+    { name: "Document number", printed: docCheck, expected: String(icaoCheckDigit(docNumber)) },
+    { name: "Date of birth", printed: dobCheck, expected: String(icaoCheckDigit(dob)) },
+    { name: "Date of expiry", printed: expCheck, expected: String(icaoCheckDigit(expiry)) },
+    { name: "Personal number", printed: personalCheck, expected: String(icaoCheckDigit(personal)) },
+    { name: "Composite (all fields)", printed: compositeCheck, expected: String(icaoCheckDigit(composite)) },
+  ].map((c) => ({ ...c, pass: c.printed === c.expected }));
+
+  return { ok: checks.every((c) => c.pass), supported: true, checks };
+}
+
+/* ============================================================
+   DOCUMENT-TYPE SPECIFIC RULES — same rules/weights as the public demo.
+   ============================================================ */
+function checkDocTypeRules(docType, { dobISO, expiry }) {
+  const now0 = new Date();
+  const MS_YEAR = 365.25 * 24 * 3600 * 1000;
+  const ageYears = dobISO ? (now0 - new Date(dobISO)) / MS_YEAR : null;
+  const yearsToExpiry = expiry ? (new Date(expiry) - now0) / MS_YEAR : null;
+
+  if (docType === "Driving Licence") {
+    if (ageYears != null && ageYears < 18) {
+      return { ok: false, label: "Driving licence — minimum age", reason: `Holder is ~${Math.max(0, Math.floor(ageYears))} years old — below the minimum legal driving age (18)` };
+    }
+    return { ok: true, label: "Driving licence — minimum age", reason: "Holder meets the minimum legal driving age (18+)" };
+  }
+  if (docType === "National ID" || docType === "Aadhaar Card") {
+    if (yearsToExpiry != null && yearsToExpiry < 0) {
+      return { ok: false, label: `${docType} — validity`, reason: `${docType} documents are not expected to lapse — this one shows a passed expiry date` };
+    }
+    return { ok: true, label: `${docType} — validity`, reason: `No unexpected expiry on this ${docType.toLowerCase()}` };
+  }
+  if (docType === "Visa") {
+    if (yearsToExpiry != null && yearsToExpiry > 5) {
+      return { ok: false, label: "Visa — validity window", reason: `Validity window (~${yearsToExpiry.toFixed(1)} yrs) is unusually long for a visa` };
+    }
+    return { ok: true, label: "Visa — validity window", reason: "Validity window is within the expected range for a visa" };
+  }
+  return { ok: true, label: "Passport — standard rules", reason: "Standard passport field rules applied (MRZ checksum above)" };
+}
+
+/* ============================================================
+   ZERO-DAY ANOMALY DETECTION — same three heuristics as the public demo,
+   adapted from "this browser session's own history" (client-only) to the
+   real, persistent, cross-officer scan history in the database — which is
+   actually a strictly better signal than a single session ever could be.
+   ============================================================ */
+function detectAnomalies(db, { docNumber, name, dobISO, tamperScore, qrStatus, registryStatus, officerId }) {
+  const anomalies = [];
+
+  // 1. Same document number, different identity — anywhere in scan history
+  //    (not just this session), independent of the national registry.
+  if (docNumber) {
+    const reuse = db
+      .prepare(
+        "SELECT traveler_name FROM scans WHERE doc_number = ? AND (lower(traveler_name) != lower(?) OR dob != ?) ORDER BY created_at ASC LIMIT 1"
+      )
+      .get(docNumber, name || "", dobISO || "");
+    if (reuse) {
+      anomalies.push(`Document no. ${docNumber} was previously scanned under a different identity ("${reuse.traveler_name}")`);
+    }
+  }
+
+  // 2. Scan velocity — a burst of scans by the same officer in a short
+  //    window looks like probing rather than routine one-at-a-time work.
+  if (officerId) {
+    const recent = db
+      .prepare("SELECT COUNT(*) AS n FROM scans WHERE officer_id = ? AND created_at > datetime('now', '-2 minutes')")
+      .get(officerId).n;
+    if (recent >= 3) {
+      anomalies.push(`${recent + 1} documents scanned within the last 2 minutes — unusually high velocity`);
+    }
+  }
+
+  // 3. Weak-signal stacking — same three-signal combination as the demo.
+  const borderlineTamper = typeof tamperScore === "number" && tamperScore >= 28 && tamperScore < 45;
+  const inconclusiveQr = qrStatus === "found" || qrStatus === "unsupported";
+  const notRegistered = registryStatus === "unregistered";
+  if ([borderlineTamper, inconclusiveQr, notRegistered].filter(Boolean).length >= 3) {
+    anomalies.push("Multiple independently-weak signals stacking together (borderline image forensics, unverifiable QR, no registry match)");
+  }
+
+  return { ok: anomalies.length === 0, anomalies };
+}
+
+/* ============================================================
+   MUTATION DETECTOR — same Levenshtein/DOB-drift heuristic as the public
+   demo, adapted to check the INCOMING scan's identity against every
+   distinct identity already on record (instead of clustering an entire
+   in-memory session at once) so it can flag a near-duplicate the moment
+   it's submitted.
+   ============================================================ */
+function levenshtein(a, b) {
+  a = String(a || ""); b = String(b || "");
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const dp = new Array(n + 1);
+  for (let j = 0; j <= n; j++) dp[j] = j;
+  for (let i = 1; i <= m; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const tmp = dp[j];
+      dp[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[j], dp[j - 1]);
+      prev = tmp;
+    }
+  }
+  return dp[n];
+}
+function nameSimilarity(a, b) {
+  a = String(a || "").toLowerCase().trim();
+  b = String(b || "").toLowerCase().trim();
+  if (!a || !b) return 0;
+  return 1 - levenshtein(a, b) / Math.max(a.length, b.length);
+}
+function dobDeltaDays(a, b) {
+  if (!a || !b) return Infinity;
+  const da = new Date(a), db2 = new Date(b);
+  if (isNaN(da) || isNaN(db2)) return Infinity;
+  return Math.abs(da - db2) / (24 * 3600 * 1000);
+}
+
+function detectMutation(db, { name, dobISO }) {
+  if (!name) return null;
+  // distinct prior identities, most recent first, capped for performance
+  const rows = db
+    .prepare("SELECT DISTINCT traveler_name AS name, dob FROM scans ORDER BY created_at DESC LIMIT 500")
+    .all();
+  let best = null;
+  for (const row of rows) {
+    const sameName = row.name.toLowerCase().trim() === String(name).toLowerCase().trim();
+    if (sameName && row.dob === dobISO) continue; // exact match — that's duplicateHit's job, not this
+    const sim = nameSimilarity(row.name, name);
+    const delta = dobDeltaDays(row.dob, dobISO);
+    let kind = null;
+    if (!sameName && sim >= 0.72 && sim < 1 && delta <= 3) kind = "Name spelling variant";
+    else if (sameName && delta > 0 && delta <= 5) kind = "Date-of-birth drift";
+    if (kind) {
+      const stabilityScore = Math.round(Math.max(0, Math.min(100, (sameName ? 100 : sim * 100) - Math.min(delta, 5) * 4)));
+      if (!best || stabilityScore < best.stabilityScore) {
+        best = { kind, withName: row.name, withDobISO: row.dob, stabilityScore };
+      }
+    }
+  }
+  return best;
+}
+
+module.exports = { icaoCheckDigit, validateMrzLine2, checkDocTypeRules, detectAnomalies, detectMutation };
+});
+
 // ---- server/routes/auth.js ----
 __define("routes/auth", function (module, exports, require) {
 const db = require("db");
@@ -796,6 +1002,7 @@ const { computeRisk } = require("risk");
 const { HttpError, getUser } = require("context");
 const { sendJSON, readJSONBody } = require("http-helpers");
 const { checkRegistry } = require("registry-check");
+const { validateMrzLine2, checkDocTypeRules, detectAnomalies, detectMutation } = require("omnisight");
 
 function serializeScan(row) {
   return {
@@ -861,15 +1068,24 @@ module.exports = function registerScanRoutes(router) {
     const docNumber = body.docNumber ? String(body.docNumber).trim() : null;
     const nationality = body.nationality ? String(body.nationality) : null;
     const tamperScore = Math.max(0, Math.min(100, Number(body.tamperScore) || 0));
-    const mrzValid = body.mrzValid !== false;
     const expired = !!body.expired;
+    const expiryDate = body.expiryDate ? String(body.expiryDate) : null;
     const source = body.source ? String(body.source) : "upload";
     // QR/chip decode happens client-side against the actual document image,
-    // which the server never sees — trusted like mrzValid/expired above, but
+    // which the server never sees — trusted like expired above, but
     // constrained to a known set of values so an arbitrary client can't smuggle
     // anything else through into computeRisk.
     const QR_STATUSES = ["match", "mismatch", "found", "absent", "unsupported"];
     const qrStatus = QR_STATUSES.includes(body.qrStatus) ? body.qrStatus : null;
+
+    // MRZ checksum — never trust a client-sent mrzValid boolean. The client
+    // sends the raw 44-char TD3 line 2 (real, for the two specimens; a
+    // properly-formed synthesized one for arbitrary uploads, occasionally
+    // corrupted — same as the public demo site); the server runs the real
+    // ICAO 9303 check-digit algorithm itself and that result is authoritative.
+    const mrzLine2 = body.mrzLine2 ? String(body.mrzLine2) : null;
+    const mrzDetail = mrzLine2 ? validateMrzLine2(mrzLine2) : { ok: true, supported: false, checks: [] };
+    const mrzValid = mrzDetail.ok !== false;
 
     // Authoritative server-side checks — never trust a client-sent verdict.
     const blacklistHit = docNumber
@@ -883,7 +1099,21 @@ module.exports = function registerScanRoutes(router) {
     const registry = checkRegistry(docNumber, travelerName, dob);
     const registryStatus = registry ? registry.status : null;
 
-    const risk = computeRisk({ tamperScore, blacklistHit, duplicateHit, mrzValid, expired, registryStatus, qrStatus });
+    // OmniSight AI checks — document-type rules, zero-day anomaly detection,
+    // and fuzzy near-duplicate (mutation) detection, all computed for real
+    // against the live database (see server/omnisight.js).
+    const docTypeCheck = checkDocTypeRules(docType, { dobISO: dob, expiry: expiryDate });
+    const anomalies = detectAnomalies(db, {
+      docNumber, name: travelerName, dobISO: dob, tamperScore, qrStatus, registryStatus, officerId: user.id,
+    });
+    const mutation = detectMutation(db, { name: travelerName, dobISO: dob });
+
+    const risk = computeRisk({
+      tamperScore, blacklistHit, duplicateHit, mrzValid, expired, registryStatus, qrStatus,
+      docTypeIssue: docTypeCheck.ok ? null : docTypeCheck,
+      anomalyCount: anomalies.anomalies.length,
+      mutationHit: !!mutation,
+    });
 
     const result = db
       .prepare(`
@@ -900,11 +1130,19 @@ module.exports = function registerScanRoutes(router) {
       );
 
     const row = db.prepare("SELECT * FROM scans WHERE id = ?").get(result.lastInsertRowid);
-    // `registry` (with the matched entry + photo, when found) is returned
-    // alongside the saved scan for immediate display — it isn't persisted
-    // beyond the status string, since the registry table is the source of
-    // truth for the entry itself.
-    sendJSON(res, 201, { item: serializeScan(row), registry });
+    // `registry` (with the matched entry + photo, when found) and the three
+    // OmniSight checks are returned alongside the saved scan for immediate
+    // display — none of these are persisted beyond what's already folded
+    // into risk.reasons[], since scans is the source of truth for the row
+    // itself and these are richer, ephemeral detail for the officer's UI.
+    sendJSON(res, 201, {
+      item: serializeScan(row),
+      registry,
+      mrz: mrzDetail,
+      docTypeCheck,
+      anomalies: anomalies.anomalies,
+      mutation,
+    });
   });
 
   router.delete("/api/scans/:id", async (req, res, params) => {

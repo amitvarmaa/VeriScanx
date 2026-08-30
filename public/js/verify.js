@@ -1,6 +1,8 @@
 // Verify & scan flow: real client-side ELA tamper analysis + simulated
 // OCR/MRZ fields, persisted to the backend which authoritatively checks
-// the blacklist + duplicate-identity history and computes the risk score.
+// the blacklist + duplicate-identity history, validates the MRZ checksum,
+// applies document-type rules, and runs zero-day anomaly + mutation
+// detection — then computes the risk score. (See server/omnisight.js.)
 window.VeriScanxVerify = (function(){
   const ICON = {
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l6 6L20 6"/></svg>',
@@ -27,6 +29,58 @@ window.VeriScanxVerify = (function(){
   function addDays(base,days){ const d=new Date(base); d.setDate(d.getDate()+days); return d; }
   function clamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
   function fmtDate(d){ return d.toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}); }
+  function isoDate(d){ const dt=new Date(d); return dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate()); }
+
+  /* ============================================================
+     MRZ CHECKSUM MATH — same real ICAO Doc 9303 check-digit algorithm as
+     the public demo site. The client only builds a properly-formed line —
+     the SERVER is the authoritative check (see server/omnisight.js /
+     routes/scans.js: "never trust a client-sent mrzValid boolean").
+     ============================================================ */
+  function icaoCheckDigit(str){
+    const weights = [7,3,1];
+    let sum = 0;
+    for(let i=0;i<str.length;i++){
+      const c = str[i];
+      let v;
+      if(c>='0' && c<='9') v = c.charCodeAt(0)-48;
+      else if(c>='A' && c<='Z') v = c.charCodeAt(0)-55; // A=10 ... Z=35
+      else v = 0; // '<' (filler) and anything unrecognized
+      sum += v * weights[i%3];
+    }
+    return sum % 10;
+  }
+  // Builds a real, correctly-checksummed TD3 (passport-format, 44-char) MRZ
+  // line 2 from a doc no. / DOB / expiry triple — used for both specimens
+  // (their printed doc shows this exact line) and arbitrary uploads (which
+  // have no genuine MRZ to read, so a properly-formed synthetic one is
+  // built and validated for real). `corruptField` deliberately breaks one
+  // check digit to simulate a tampered document, indexing into
+  // [docCheck, dobCheck, expCheck, personalCheck, compositeCheck].
+  function buildMrzLine2({docNumber, dobISO, expiryDate, sex, corruptField}){
+    const digits9 = (String(docNumber).replace(/\D/g,'')+'000000000').slice(0,9);
+    const yymmdd = d => { const dt=new Date(d); return pad(dt.getFullYear()%100)+pad(dt.getMonth()+1)+pad(dt.getDate()); };
+    const dob6 = yymmdd(dobISO);
+    const exp6 = yymmdd(expiryDate);
+    const personal14 = (digits9.slice(3)+'<<<<<<<<<<<<<<').slice(0,14);
+
+    const docCheck = icaoCheckDigit(digits9);
+    const dobCheck = icaoCheckDigit(dob6);
+    const expCheck = icaoCheckDigit(exp6);
+    const personalCheck = icaoCheckDigit(personal14);
+    const composite = digits9+docCheck + dob6+dobCheck + exp6+expCheck + personal14+personalCheck;
+    const compositeCheck = icaoCheckDigit(composite);
+
+    const digits = [docCheck, dobCheck, expCheck, personalCheck, compositeCheck];
+    if(corruptField!=null) digits[corruptField] = (digits[corruptField] + 1 + Math.floor(Math.random()*8)) % 10;
+
+    return digits9+digits[0] + 'NRD' + dob6+digits[1] + (sex||'X') + exp6+digits[2] + personal14+digits[3] + digits[4];
+  }
+  // Line 1 of a TD3 MRZ: document type, issuing country, surname/given names.
+  function mrzLine1(surname, given, country){
+    const core = `P<${country}${surname}<<${given}`;
+    return (core + '<'.repeat(Math.max(0, 44-core.length))).slice(0,44);
+  }
 
   const QR_MATRIX_CLEAN = { size: 37, bits: "0000000000000000000000000000000000000000000000000000000000000000000000000000111111101110101000100001101111111000010000010111000001001110010100000100001011101010110101010101100010111010000101110101101001000100011001011101000010111010000001111110111100101110100001000001010011110010111000010000010000111111101010101010101010101111111000000000000010010101110111010000000000001100111000010110010011011001011110000011111010110100100101001010001010000011111110100111110000001100011001000000000100100110100011101111000000100000100100101010110011111100101010011000010101101010001110010101101100111000000111111010100001000001110000100100000100010000110101011011100010111001000011010111111101101111010010100000000001110100100001001010011111111001100000000000101011111110000111011011110000001111000110101011100010110100100100000000111101101101111101011010010110000111110010100011100101111111100010000000111010101000010000111100110110000000010000110001011110011000101110110000111000111011011010001100111110010000000000000100010010110101010001010000001111111000011111101010001010111100000100000101011010011000111100010011000010111010110011001111010011111111000001011101000000111000011011011011000000101110100100000111100101000011100000010000010101010111100010100101000000001111111010010110111101011001001010000000000000000000000000000000000000000000000000000000000000000000000000000" };
   const QR_MATRIX_FLAGGED = { size: 37, bits: "0000000000000000000000000000000000000000000000000000000000000000000000000000111111101110111101101101001111111000010000010111000100001111010100000100001011101010110001110101011010111010000101110101101011100000001001011101000010111010000000010010100100101110100001000001010011100011111001010000010000111111101010101010101010101111111000000000000010010110101011000000000000001100111000010110110101001001011110000101001011110101100101001101101010000010110010100111110110001100001001000000000010010110100110101111010100100000100110100010110011010101111000011000011111000000001110110111111010111000000100111011000001001010110111100100000001100000100101011101110000001001000001011111010101101100110011100000000000010110010001001001010011101001100000111011100011111110001011000001110000000001101010101011110111010011100100001000101100001101111101011011010110000111010010100011100101010011100010000000011011101000010000011111000110000000000000011001011110001010001110110000111111101011011011110100111110010000000000000100010010100111010001010000001111111001011111000011111010111100000100000101111010111001100100010010000010111010100011001110110011111010000001011101001100111001011100011000000000101110100100000110000110000010100000010000010101010100100010001001000000001111111011010111000101011011001010000000000000000000000000000000000000000000000000000000000000000000000000000" };
@@ -53,8 +107,20 @@ window.VeriScanxVerify = (function(){
     ctx.strokeStyle = 'rgba(20,40,40,0.06)';
     for(let i=-H;i<W;i+=9){ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i+H,H); ctx.stroke(); }
     const data = variant==='flagged'
-      ? {name:'OSEI, FARID', dob:'11 MAR 1988', dobISO:'1988-03-11', doc:'N1183340', nat:'NORDAVIA', sex:'M', exp:'01 FEB 2027', mrz:'P<NRDOSEI<<FARID<<<<<<<<<<<<<<<<<<<<\nN11833403NRD8803118M2702018<<<<<<<<<<02'}
-      : {name:'VERMA, ANIKA', dob:'06 JAN 1996', dobISO:'1996-01-06', doc:'N4021837', nat:'NORDAVIA', sex:'F', exp:'14 AUG 2031', mrz:'P<NRDVERMA<<ANIKA<<<<<<<<<<<<<<<<<<<<<\nN40218374NRD9601068F3108148<<<<<<<<<<12'};
+      ? {name:'OSEI, FARID', dob:'11 MAR 1988', dobISO:'1988-03-11', doc:'N1183340', nat:'NORDAVIA', sex:'M', exp:'01 FEB 2027', expISO:'2027-02-01'}
+      : {name:'VERMA, ANIKA', dob:'06 JAN 1996', dobISO:'1996-01-06', doc:'N4021837', nat:'NORDAVIA', sex:'F', exp:'14 AUG 2031', expISO:'2031-08-14'};
+    // Real ICAO 9303 line 2, built the same way as the printed field values —
+    // the "flagged" specimen has its document-number check digit genuinely
+    // corrupted (exactly what a real MRZ reader would catch); "clean" is
+    // fully self-consistent. Stashed on `data.mrzLine2` so the exact string
+    // drawn on the document (corruption is randomized) is also what gets
+    // submitted to the server for validation.
+    const mrzLine2 = buildMrzLine2({
+      docNumber: data.doc, dobISO: data.dobISO, expiryDate: data.expISO, sex: data.sex,
+      corruptField: variant==='flagged' ? 0 : null
+    });
+    data.mrzLine2 = mrzLine2;
+    data.mrz = mrzLine1(data.name.split(', ')[0], data.name.split(', ')[1], 'NRD') + '\n' + mrzLine2;
     ctx.fillStyle = '#1a2620'; ctx.font = '700 15px Georgia, serif';
     ctx.fillText('REPUBLIC OF NORDAVIA · PASSPORT', 28, 34);
     ctx.font = '400 10px Georgia, serif'; ctx.fillStyle='#4a564d';
@@ -139,15 +205,14 @@ window.VeriScanxVerify = (function(){
     const docType=pick(rng,DOC_TYPES);
     const expired=rng()<0.14;
     const expiry= expired ? addDays(new Date(),-Math.floor(rng()*400)-10) : addDays(new Date(),Math.floor(rng()*2000)+60);
-    const mrzValid=rng()>0.12;
-    return {name,dob,docNumber,nationality,docType,expired,expiry,mrzValid};
+    return {name,dob,docNumber,nationality,docType,expired,expiry};
   }
 
   const PIPELINE_LABELS = [
-    'Capturing document image','Running OCR & MRZ parsing (simulated)',
+    'Capturing document image','Running OCR & MRZ parsing (simulated extraction, live checksum)',
     'Analyzing image for tampering (live ELA)','Decoding embedded QR / chip code (live)',
     'Cross-checking blacklist against database',
-    'Searching database for duplicate identities','Cross-checking national registry',
+    'Searching database for duplicate identities, mutations & anomalies','Cross-checking national registry & document-type rules',
     'Saving scan to database & computing risk score'
   ];
 
@@ -175,31 +240,47 @@ window.VeriScanxVerify = (function(){
       r.qrStatus==='found' ? 'QR/barcode detected and decoded — not cross-verified against simulated OCR fields' :
       r.qrStatus==='unsupported' ? 'QR verification unavailable in this browser' :
       'No scannable QR or chip code found on this document';
+    const mrzDetail = r.mrzDetail || { ok:null, supported:false, checks:[] };
+    const mrzFailed = mrzDetail.checks ? mrzDetail.checks.filter(c=>!c.pass) : [];
+    const mrzSub = !mrzDetail.supported ? 'Could not parse a machine-readable zone' :
+      rec.mrzValid ? 'All check digits verified — document number, DOB, expiry & composite all agree' :
+      `Check digit mismatch: ${mrzFailed.map(c=>c.name).join(', ')}`;
+    const docTypeCheck = r.docTypeCheck || { ok:true, label:'Document-type rules', reason:'Not evaluated' };
+    const anomalies = r.anomalies || [];
+    const mutation = r.mutation || null;
     const checks = [
       {ok: r.tamperScore<45, warn: r.tamperScore>=45&&r.tamperScore<65, label:'Image forensics (ELA)', sub: r.tamperScore<45?'No significant manipulation detected':'Localized inconsistency detected in image', tag:'LIVE', tagClass:'tag-live'},
       {ok: r.qrStatus!=='mismatch', warn: r.qrStatus==='found'||r.qrStatus==='unsupported', label:'QR / chip code verification', sub: qrSub, tag:'LIVE', tagClass:'tag-live'},
-      {ok: r.mrzValid, label:'MRZ / field checksum', sub: r.mrzValid?'Checksum and cross-field values consistent':'Checksum mismatch against visual fields', tag:'SIMULATED', tagClass:'tag-sim'},
+      {ok: rec.mrzValid, label:'MRZ checksum (ICAO 9303)', sub: mrzSub, tag:'LIVE', tagClass:'tag-live'},
       {ok: !rec.blacklistHit, label:'Blacklist / watchlist match', sub: rec.blacklistHit?'Document number matches a database watchlist entry':'No match against the live blacklist table', tag:'DATABASE', tagClass:'tag-live'},
       {ok: regStatus!=='unregistered' && regStatus!=='mismatch', label:'National registry cross-check', sub: regSub, tag:'DATABASE', tagClass:'tag-live'},
       {ok: !rec.duplicateHit, label:'Duplicate identity search', sub: rec.duplicateHit?'Same name + DOB found in a prior scan on record':'No duplicate found in scan history', tag:'DATABASE', tagClass:'tag-live'},
       {ok: !r.expired, label:'Document validity', sub: r.expired?'Document expiry date has passed':'Document within validity window', tag:'DERIVED', tagClass:'tag-sim'},
+      {ok: docTypeCheck.ok, label:`Document-type rules (${rec.docType||'Passport'})`, sub: docTypeCheck.reason, tag:'DERIVED', tagClass:'tag-sim'},
+      {ok: anomalies.length===0, label:'Zero-day anomaly detection', sub: anomalies.length===0 ? 'No behavioral or cross-signal anomalies detected' : anomalies.join('; '), tag:'DATABASE', tagClass:'tag-live'},
+      {ok: !mutation, label:'Mutation detector (identity drift)', sub: mutation ? `${mutation.kind} vs. prior record "${mutation.withName}" — ${mutation.stabilityScore}% stability` : 'No near-duplicate identity found in scan history', tag:'DATABASE', tagClass:'tag-live'},
     ];
     const checkRows = checks.map(c=>{
       const cls = c.ok?'check-pass':(c.warn?'check-warn':'check-fail');
       const icon = c.ok?ICON.check:(c.warn?ICON.warn:ICON.x);
       return `<div class="check-row"><span class="check-icon ${cls}">${icon}</span><span class="check-text"><b>${c.label} <span class="tag ${c.tagClass}" style="margin-left:4px;">${c.tag}</span></b><span>${c.sub}</span></span></div>`;
     }).join('');
-    const maxPts = {tamper:25, black:30, dup:25, mrz:12, exp:8, reg:28, qr:24};
+    const maxPts = {tamper:25, black:30, dup:25, mrz:12, exp:8, reg:28, qr:24, doctype:10, anomaly:15, mutation:15};
     const regPts = regStatus==='mismatch' ? 28 : (regStatus==='unregistered' ? 26 : 0);
     const qrPts = r.qrStatus==='mismatch' ? 24 : 0;
+    const anomalyPts = Math.min(15, anomalies.length*6);
+    const mutationPts = mutation ? 15 : 0;
     const contrib = [
       contribRow('Image forensics', r.tamperScore*0.25, maxPts.tamper, 'var(--accent)'),
       contribRow('QR / chip mismatch', qrPts, maxPts.qr, 'var(--critical)'),
       contribRow('Blacklist match', rec.blacklistHit?30:0, maxPts.black, 'var(--critical)'),
       contribRow('Registry cross-check', regPts, maxPts.reg, 'var(--critical)'),
       contribRow('Duplicate identity', rec.duplicateHit?25:0, maxPts.dup, 'var(--serious)'),
-      contribRow('MRZ / field check', r.mrzValid?0:12, maxPts.mrz, 'var(--warning)'),
+      contribRow('MRZ / field check', rec.mrzValid?0:12, maxPts.mrz, 'var(--warning)'),
       contribRow('Document validity', r.expired?8:0, maxPts.exp, 'var(--ink-3)'),
+      contribRow('Document-type rule violation', docTypeCheck.ok?0:10, maxPts.doctype, 'var(--warning)'),
+      contribRow('Zero-day anomaly', anomalyPts, maxPts.anomaly, 'var(--serious)'),
+      contribRow('Identity mutation', mutationPts, maxPts.mutation, 'var(--serious)'),
     ].join('');
     const elaHTML = r.ela ? `<div class="ela-wrap">
         <div class="ela-frame"><img src="${r.ela.originalURL}" alt="Document image"/><span>Original</span></div>
@@ -229,6 +310,12 @@ window.VeriScanxVerify = (function(){
             <div class="field-row"><span class="fk">Expiry</span><span class="fv">${r.expiryDisplay}</span></div>
           </div>
         </div>
+        ${mrzDetail.supported ? `<div class="rcard">
+          <h4>MRZ check digits <span class="tag tag-live" style="${!rec.mrzValid?'background:var(--critical-soft);color:var(--critical);':''}">${rec.mrzValid?'ALL VALID':'MISMATCH'}</span></h4>
+          <div class="field-list">
+            ${mrzDetail.checks.map(c=>`<div class="field-row"><span class="fk">${c.name}</span><span class="fv" style="${c.pass?'':'color:var(--critical);'}">printed ${c.printed} ${c.pass?'=':'≠'} computed ${c.expected}</span></div>`).join('')}
+          </div>
+        </div>` : ''}
         ${regEntry ? `<div class="rcard">
           <h4>Registry record <span class="tag tag-live">DATABASE</span></h4>
           <div style="display:flex; gap:12px; align-items:center;">
@@ -291,7 +378,7 @@ window.VeriScanxVerify = (function(){
         return result;
       }
 
-      let imgEl, fields, sourceLabel, sampleVariant=null;
+      let imgEl, fields, sourceLabel, sampleVariant=null, mrzLine2=null;
       await playStep(0, null);
 
       if(source.sample){
@@ -303,17 +390,31 @@ window.VeriScanxVerify = (function(){
           name: source.sample==='flagged' ? 'Farid Osei' : 'Anika Verma',
           dob: specData.dobISO, docNumber: specData.doc, nationality: specData.nat, docType:'Passport',
           expired: source.sample==='flagged', expiry: source.sample==='flagged' ? addDays(new Date(),-40) : addDays(new Date(),1500),
-          mrzValid: source.sample!=='flagged'
         };
+        // The exact 44-char line drawn on the specimen (corruption, when
+        // present, is randomized at draw time) — reused as-is so what's
+        // submitted matches what's printed on the document image.
+        mrzLine2 = specData.mrzLine2;
         sourceLabel = source.sample==='flagged' ? 'Specimen — flagged' : 'Specimen — clean';
       } else {
         const file = source.file;
         const buf = await file.arrayBuffer();
         let checksum=0; const bytes=new Uint8Array(buf); const stride=Math.max(1,Math.floor(bytes.length/20000));
         for(let i=0;i<bytes.length;i+=stride){ checksum=(checksum*31+bytes[i])>>>0; }
-        fields = simulateFieldsFromSeed(file.name+'|'+file.size+'|'+checksum);
+        const seedStr = file.name+'|'+file.size+'|'+checksum;
+        fields = simulateFieldsFromSeed(seedStr);
         sourceLabel = file.name;
         try{ imgEl = await loadImageEl(URL.createObjectURL(file)); }catch{ imgEl = null; }
+        // OCR extraction is simulated (no real MRZ to read on an arbitrary
+        // image), but the checksum math is real: build a properly-formed
+        // TD3 line from the simulated fields — occasionally with one check
+        // digit deliberately corrupted — same as the two specimens above.
+        const mrzRng = mulberry32(fnv1a(seedStr+'|mrz'));
+        const corrupt = mrzRng() < 0.12;
+        mrzLine2 = buildMrzLine2({
+          docNumber: fields.docNumber, dobISO: fields.dob, expiryDate: fields.expiry,
+          corruptField: corrupt ? Math.floor(mrzRng()*5) : null
+        });
       }
 
       await playStep(1, null);
@@ -359,22 +460,28 @@ window.VeriScanxVerify = (function(){
       await playStep(5, null);
       await playStep(6, null);
 
-      let record, registryEntry = null;
+      let record, registryEntry = null, mrzDetail = null, docTypeCheck = null, anomalies = [], mutation = null;
+      const expiryISO = isoDate(fields.expiry);
       await playStep(7, async ()=>{
         const res = await VeriScanx.api('/api/scans', { method:'POST', body:{
           travelerName: fields.name, dob: fields.dob, docType: fields.docType,
           docNumber: fields.docNumber, nationality: fields.nationality,
-          tamperScore, mrzValid: fields.mrzValid, expired: fields.expired, qrStatus,
+          tamperScore, mrzLine2, expiryDate: expiryISO, expired: fields.expired, qrStatus,
           source: sampleVariant ? ('sample-'+sampleVariant) : 'upload'
         }});
         record = res.item;
         registryEntry = res.registry ? res.registry.entry : null;
+        mrzDetail = res.mrz || null;
+        docTypeCheck = res.docTypeCheck || null;
+        anomalies = res.anomalies || [];
+        mutation = res.mutation || null;
       });
 
       await new Promise(r=>setTimeout(r,250));
       renderResults(resultsGrid, {
-        record, sourceLabel, ela, tamperScore, mrzValid: fields.mrzValid, expired: fields.expired,
-        expiryDisplay: fmtDate(new Date(fields.expiry)), registryEntry, qrStatus, qrDecoded
+        record, sourceLabel, ela, tamperScore, expired: fields.expired,
+        expiryDisplay: fmtDate(new Date(fields.expiry)), registryEntry, qrStatus, qrDecoded,
+        mrzDetail, docTypeCheck, anomalies, mutation
       });
 
       stageProcessing.hidden = true; stageResults.hidden = false;
