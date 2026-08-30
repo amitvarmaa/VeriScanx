@@ -1238,6 +1238,7 @@ module.exports = function registerStatsRoutes(router) {
 // ---- server.js (entry point) ----
 const http = require("http");
 const path = require("path");
+const fs = require("fs");
 const { URL } = require("url");
 
 const Router = __require("router");
@@ -1255,6 +1256,15 @@ __require("routes/stats")(router);
 const publicDir = path.join(__dirname, "public");
 const serveFile = serveStatic(publicDir);
 
+// The custom domain veriscanx.in is meant to show the public marketing/demo
+// site (root index.html), not the officer panel — the officer panel stays
+// reachable at its own Render URL (and at /login.html on any host, for
+// anyone who bookmarked it). Only the bare "/" on the public-site hostnames
+// is special-cased; every other path (API routes, panel assets) behaves the
+// same regardless of which hostname the request came in on.
+const PUBLIC_SITE_HOSTS = new Set(["veriscanx.in", "www.veriscanx.in"]);
+const PUBLIC_SITE_INDEX = path.join(__dirname, "index.html");
+
 const PORT = process.env.PORT || 4000;
 
 const server = http.createServer(async (req, res) => {
@@ -1265,6 +1275,13 @@ const server = http.createServer(async (req, res) => {
 
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   const pathname = decodeURIComponent(url.pathname);
+  const hostHeader = (req.headers.host || "").split(":")[0].toLowerCase();
+
+  if (pathname === "/" && PUBLIC_SITE_HOSTS.has(hostHeader) && fs.existsSync(PUBLIC_SITE_INDEX)) {
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    fs.createReadStream(PUBLIC_SITE_INDEX).pipe(res);
+    return;
+  }
 
   if (pathname.startsWith("/api/")) {
     const match = router.match(req.method, pathname);
