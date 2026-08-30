@@ -571,8 +571,119 @@ window.VeriScanxVerify = (function(){
     return {name,dob,docNumber,nationality,docType,expired,expiry};
   }
 
+  // ============================================================
+  // REAL OCR — an uploaded document's fields are actually read off the
+  // image via Tesseract.js (client-side, no server round-trip), then shown
+  // to the officer in an editable review step before anything is submitted
+  // (mirrors a real border kiosk: OCR proposes, the officer confirms/fixes).
+  // If the image contains a real ICAO TD3 machine-readable zone, the real
+  // MRZ line 2 text is used as-is downstream, so the server's checksum
+  // validation is against genuine document data, not a synthesized line.
+  // ============================================================
+
+  // 6-digit MRZ date (YYMMDD) -> ISO 'YYYY-MM-DD'. DOB dates never fall in
+  // the future, so a YY greater than the current 2-digit year means 1900s.
+  function mrzDateToISO(raw, isBirth){
+    if(!/^\d{6}$/.test(raw)) return '';
+    const yy = parseInt(raw.slice(0,2),10);
+    const mm = raw.slice(2,4), dd = raw.slice(4,6);
+    const century = isBirth && yy > (new Date().getFullYear()%100) ? 1900 : 2000;
+    return `${century+yy}-${mm}-${dd}`;
+  }
+
+  // Best-effort field extraction from raw OCR text. Every value here is a
+  // *suggestion* — the officer reviews/corrects all of it before it's ever
+  // submitted, so imperfect OCR never silently produces a wrong scan.
+  function guessFieldsFromOcrText(text){
+    const rawLines = String(text||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+    const compact = rawLines.map(l=> l.replace(/\s+/g,'').toUpperCase());
+    let mrzLine1=null, mrzLine2=null;
+    for(let i=0;i<compact.length-1;i++){
+      const a=compact[i], b=compact[i+1];
+      if(/^[A-Z0-9<]{40,44}$/.test(a) && /^[A-Z0-9<]{40,44}$/.test(b) && a.startsWith('P')){
+        mrzLine1=a.padEnd(44,'<').slice(0,44); mrzLine2=b.padEnd(44,'<').slice(0,44); break;
+      }
+    }
+    let name='', docNumber='', dob='', nationality='', expiryISO='';
+    if(mrzLine1 && mrzLine2){
+      // Real ICAO TD3 layout: P<CCCSURNAME<<GIVEN<NAMES<<...  /  docNumber(9) + check + nationality(3) + dob(6) + check + sex(1) + expiry(6) + ...
+      const namePart = mrzLine1.slice(5).replace(/<+$/,'');
+      const [surname='', given=''] = namePart.split('<<');
+      name = [given, surname].filter(Boolean).join(' ').replace(/</g,' ').replace(/\s+/g,' ').trim();
+      nationality = mrzLine1.slice(2,5).replace(/</g,'');
+      docNumber = mrzLine2.slice(0,9).replace(/</g,'');
+      dob = mrzDateToISO(mrzLine2.slice(13,19), true);
+      expiryISO = mrzDateToISO(mrzLine2.slice(21,27), false);
+    } else {
+      // No machine-readable zone found (non-passport document, or a scan
+      // too rough for Tesseract to read it) — fall back to generic
+      // pattern-matching over whatever text was recognized.
+      const full = rawLines.join('\n');
+      const dmy = full.match(/\b(\d{2})[\/\-.](\d{2})[\/\-.](\d{4})\b/);
+      const ymd = full.match(/\b(\d{4})[\/\-.](\d{2})[\/\-.](\d{2})\b/);
+      if(ymd) dob = `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
+      else if(dmy) dob = `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
+      const docLine = rawLines.find(l=>/\b(NO|NUMBER|PASSPORT|ID)\b/i.test(l) && /[A-Z0-9]{6,}/.test(l));
+      const docMatch = (docLine||full).match(/\b[A-Z]{0,2}\d{6,10}\b/);
+      docNumber = docMatch ? docMatch[0] : '';
+      const nameLine = rawLines.find(l=>/^[A-Z][A-Z\s]{4,40}$/.test(l) && !/PASSPORT|REPUBLIC|GOVERNMENT|IDENTITY|CARD|AUTHORITY|MINISTRY|DEPARTMENT|UNIQUE|IDENTIFICATION|NATIONAL/.test(l));
+      name = nameLine ? nameLine.replace(/\s+/g,' ').trim() : '';
+    }
+    return { name, docNumber, dob, nationality, docType:'Passport', expiryISO, mrzLine2: (mrzLine1&&mrzLine2) ? mrzLine2 : null };
+  }
+
+  // Editable review step shown after OCR runs on an uploaded document —
+  // reuses the panel's existing #modalBackdrop/#modalBody (same markup the
+  // Officers/Registry/Blacklist admin forms already use), so no new CSS.
+  // Resolves with the officer-confirmed field values, or null if cancelled.
+  function showOcrReviewModal(guess, confidence){
+    return new Promise((resolve)=>{
+      const backdrop = document.getElementById('modalBackdrop');
+      const body = document.getElementById('modalBody');
+      if(!backdrop || !body){ resolve(guess); return; }
+      const confLine = confidence!=null
+        ? `OCR confidence: ${confidence}% — check the fields below before continuing.`
+        : `OCR couldn't read this image clearly — please fill in the fields manually.`;
+      const mrzNote = guess.mrzLine2 ? ' A machine-readable zone was detected — name / DOB / document number / nationality were auto-filled from it.' : '';
+      body.innerHTML = `
+        <h3>Review scanned details</h3>
+        <p style="font-size:12.5px;color:var(--ink-3);margin:0 0 14px;line-height:1.5;">${escapeHtml(confLine)}${escapeHtml(mrzNote)}</p>
+        <form class="modal-form" id="ocrReviewForm">
+          <div class="field"><label>Full name</label><input id="ocrName" required value="${escapeHtml(guess.name||'')}"/></div>
+          <div class="field"><label>Document number</label><input id="ocrDoc" value="${escapeHtml(guess.docNumber||'')}"/></div>
+          <div class="field"><label>Date of birth</label><input id="ocrDob" type="date" value="${escapeHtml(guess.dob||'')}"/></div>
+          <div class="field"><label>Nationality</label><input id="ocrNat" value="${escapeHtml(guess.nationality||'')}"/></div>
+          <div class="field"><label>Document type</label>
+            <select id="ocrDocType">${DOC_TYPES.map(t=>`<option value="${t}" ${guess.docType===t?'selected':''}>${t}</option>`).join('')}</select>
+          </div>
+          <div class="field"><label>Expiry date</label><input id="ocrExpiry" type="date" value="${escapeHtml(guess.expiryISO||'')}"/></div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost btn-sm" id="ocrCancelBtn">Cancel scan</button>
+            <button type="submit" class="btn btn-primary btn-sm">Confirm &amp; continue</button>
+          </div>
+        </form>`;
+      backdrop.hidden = false;
+      function cleanup(){ backdrop.hidden = true; body.innerHTML=''; }
+      document.getElementById('ocrCancelBtn').addEventListener('click', ()=>{ cleanup(); resolve(null); });
+      document.getElementById('ocrReviewForm').addEventListener('submit', (e)=>{
+        e.preventDefault();
+        const result = {
+          name: document.getElementById('ocrName').value.trim(),
+          docNumber: document.getElementById('ocrDoc').value.trim(),
+          dob: document.getElementById('ocrDob').value || '',
+          nationality: document.getElementById('ocrNat').value.trim(),
+          docType: document.getElementById('ocrDocType').value,
+          expiryISO: document.getElementById('ocrExpiry').value || '',
+          mrzLine2: guess.mrzLine2 || null,
+        };
+        cleanup();
+        resolve(result);
+      });
+    });
+  }
+
   const PIPELINE_LABELS = [
-    'Capturing document image','Running OCR & MRZ parsing (simulated extraction, live checksum)',
+    'Capturing document image','Running OCR & MRZ parsing (Tesseract OCR on uploads, live checksum)',
     'Analyzing image for tampering (live ELA)','Decoding embedded QR / chip code (live)',
     'Cross-checking blacklist against database',
     'Searching database for duplicate identities, mutations & anomalies','Cross-checking national registry & document-type rules',
@@ -778,7 +889,7 @@ window.VeriScanxVerify = (function(){
         return result;
       }
 
-      let imgEl, fields, sourceLabel, sampleVariant=null, mrzLine2=null;
+      let imgEl, fields, sourceLabel, sampleVariant=null, mrzLine2=null, needsReview=false;
       await playStep(0, null);
 
       if(source.sample){
@@ -798,26 +909,52 @@ window.VeriScanxVerify = (function(){
         sourceLabel = source.sample==='flagged' ? 'Specimen — flagged' : 'Specimen — clean';
       } else {
         const file = source.file;
-        const buf = await file.arrayBuffer();
-        let checksum=0; const bytes=new Uint8Array(buf); const stride=Math.max(1,Math.floor(bytes.length/20000));
-        for(let i=0;i<bytes.length;i+=stride){ checksum=(checksum*31+bytes[i])>>>0; }
-        const seedStr = file.name+'|'+file.size+'|'+checksum;
-        fields = simulateFieldsFromSeed(seedStr);
         sourceLabel = file.name;
         try{ imgEl = await loadImageEl(URL.createObjectURL(file)); }catch{ imgEl = null; }
-        // OCR extraction is simulated (no real MRZ to read on an arbitrary
-        // image), but the checksum math is real: build a properly-formed
-        // TD3 line from the simulated fields — occasionally with one check
-        // digit deliberately corrupted — same as the two specimens above.
-        const mrzRng = mulberry32(fnv1a(seedStr+'|mrz'));
-        const corrupt = mrzRng() < 0.12;
-        mrzLine2 = buildMrzLine2({
-          docNumber: fields.docNumber, dobISO: fields.dob, expiryDate: fields.expiry,
-          corruptField: corrupt ? Math.floor(mrzRng()*5) : null
-        });
+        needsReview = true;
       }
 
-      await playStep(1, null);
+      let ocrGuess = null, ocrConfidence = null;
+      await playStep(1, async ()=>{
+        if(!needsReview) return;
+        if(imgEl && typeof Tesseract !== 'undefined'){
+          try{
+            const { data } = await Tesseract.recognize(imgEl, 'eng');
+            ocrConfidence = Math.round(data.confidence || 0);
+            ocrGuess = guessFieldsFromOcrText(data.text || '');
+          }catch{ ocrGuess = guessFieldsFromOcrText(''); }
+        } else {
+          ocrGuess = guessFieldsFromOcrText('');
+        }
+      });
+
+      if(needsReview){
+        const confirmed = await showOcrReviewModal(ocrGuess, ocrConfidence);
+        if(!confirmed){ reset(); return; }
+        const expiryDate = confirmed.expiryISO ? new Date(confirmed.expiryISO+'T00:00:00') : addDays(new Date(),700);
+        fields = {
+          name: confirmed.name, dob: confirmed.dob || null, docNumber: confirmed.docNumber || '',
+          nationality: confirmed.nationality || null, docType: confirmed.docType || 'Passport',
+          expired: confirmed.expiryISO ? (expiryDate < new Date()) : false, expiry: expiryDate,
+        };
+        if(confirmed.mrzLine2){
+          // Real MRZ line captured via OCR — passed through as-is so the
+          // server's ICAO checksum validation runs against genuine data.
+          mrzLine2 = confirmed.mrzLine2;
+        } else {
+          // No machine-readable zone available (e.g. a national ID card) —
+          // synthesize a properly-checksummed line from the officer-
+          // confirmed fields so the MRZ card still has something real to
+          // validate, same approach as the two specimens use.
+          const mrzRng = mulberry32(fnv1a((confirmed.docNumber||sourceLabel)+'|mrz'));
+          const corrupt = mrzRng() < 0.12;
+          mrzLine2 = buildMrzLine2({
+            docNumber: fields.docNumber, dobISO: fields.dob, expiryDate: fields.expiry,
+            corruptField: corrupt ? Math.floor(mrzRng()*5) : null
+          });
+        }
+      }
+
       let ela = null;
       await playStep(2, async ()=>{ try{ ela = await computeELA(imgEl); }catch{ ela = null; } });
 
