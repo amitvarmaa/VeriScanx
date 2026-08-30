@@ -93,6 +93,8 @@ img{ max-width:100%; display:block; }
   color:var(--accent-strong); display:flex; align-items:center; gap:10px; margin-bottom:14px;
 }
 .eyebrow::before{ content:""; width:22px; height:1px; background:var(--accent-strong); display:inline-block; }
+.exhibit-open-link{ margin-left:auto; color:var(--ink-3); text-decoration:none; font-weight:600; opacity:.7; transition:opacity .15s, color .15s; flex-shrink:0; }
+.exhibit-open-link:hover{ opacity:1; color:var(--accent-strong); }
 
 /* ============================= TOPBAR ============================= */
 .topbar{
@@ -670,6 +672,36 @@ body:not(.loaded) .hero-anim{ opacity:0; transform:translateY(20px); }
   #printReport{ display:block !important; }
 }
 
+/* ============================= SLIDE TRANSITIONS ============================= */
+/* Cross-document: sliding between index.html and each standalone Exhibit page
+   (and Exhibit-to-Exhibit via the Prev/Next pager). Progressive enhancement —
+   browsers without the View Transitions API just navigate normally. */
+@view-transition{ navigation: auto; }
+@media (prefers-reduced-motion: no-preference){
+  /* :not([data-slide-dir]) — a same-document tab switch also sets
+     data-slide-dir, and there root is unchanged (only #app/view-content
+     should move), so root's own animation is suppressed in that case. */
+  html:not([data-slide-dir])::view-transition-old(root){ animation: 220ms ease-in both vsx-slide-out; }
+  html:not([data-slide-dir])::view-transition-new(root){ animation: 320ms ease-out both vsx-slide-in; }
+}
+@keyframes vsx-slide-out{ to{ transform:translateX(-4%); opacity:0; } }
+@keyframes vsx-slide-in{ from{ transform:translateX(4%); opacity:0; } }
+
+/* Same-document: sliding between the Overview / Live Demo / Dashboard tabs.
+   Only the main content area transitions — topbar and footer stay put. The
+   view-transition-name is scoped to the [data-slide-dir] window (set right
+   before startViewTransition, removed once it finishes) so it never leaks
+   into the cross-document transition above when navigating to/from an
+   Exhibit page. */
+html[data-slide-dir] #app{ view-transition-name: view-content; }
+@media (prefers-reduced-motion: no-preference){
+  html[data-slide-dir="forward"]::view-transition-old(view-content){ animation: 220ms ease-in both vsx-slide-out; }
+  html[data-slide-dir="forward"]::view-transition-new(view-content){ animation: 320ms ease-out both vsx-slide-in; }
+  html[data-slide-dir="backward"]::view-transition-old(view-content){ animation: 220ms ease-in both vsx-slide-out-rev; }
+  html[data-slide-dir="backward"]::view-transition-new(view-content){ animation: 320ms ease-out both vsx-slide-in-rev; }
+}
+@keyframes vsx-slide-out-rev{ to{ transform:translateX(4%); opacity:0; } }
+@keyframes vsx-slide-in-rev{ from{ transform:translateX(-4%); opacity:0; } }
 
 .exhibit-crumb{ font-family:var(--font-mono); font-size:12.5px; color:var(--ink-3); text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
 .exhibit-crumb:hover{ color:var(--ink); }
@@ -701,7 +733,7 @@ body:not(.loaded) .hero-anim{ opacity:0; transform:translateY(20px); }
 </header>
 <main class="wrap" style="padding-top:36px; min-height:60vh;">
   <a class="exhibit-crumb" href="../index.html">&larr; Back to overview</a>
-    <div class="section">
+  <div class="section">
     <div class="wrap">
       <div class="light-panel">
         <div class="light-panel-glow"></div>
@@ -719,13 +751,12 @@ body:not(.loaded) .hero-anim{ opacity:0; transform:translateY(20px); }
       </div>
     </div>
   </div>
-
   <div class="exhibit-pager">
     <a href="08-architecture.html">&larr; Exhibit 08 — Architecture</a>
     <a class="next" href="10-faq.html">Exhibit 10 — Questions officers ask &rarr;</a>
   </div>
 </main>
-  <footer class="footer">
+<footer class="footer">
     <div class="wrap">
       <div class="footer-grid">
         <div class="footer-col">
@@ -769,7 +800,6 @@ body:not(.loaded) .hero-anim{ opacity:0; transform:translateY(20px); }
       </div>
     </div>
   </footer>
-
 
 </body>
 </html>

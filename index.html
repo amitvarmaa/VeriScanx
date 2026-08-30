@@ -670,6 +670,37 @@ body:not(.loaded) .hero-anim{ opacity:0; transform:translateY(20px); }
   body > *:not(#printReport){ display:none !important; }
   #printReport{ display:block !important; }
 }
+
+/* ============================= SLIDE TRANSITIONS ============================= */
+/* Cross-document: sliding between index.html and each standalone Exhibit page
+   (and Exhibit-to-Exhibit via the Prev/Next pager). Progressive enhancement —
+   browsers without the View Transitions API just navigate normally. */
+@view-transition{ navigation: auto; }
+@media (prefers-reduced-motion: no-preference){
+  /* :not([data-slide-dir]) — a same-document tab switch also sets
+     data-slide-dir, and there root is unchanged (only #app/view-content
+     should move), so root's own animation is suppressed in that case. */
+  html:not([data-slide-dir])::view-transition-old(root){ animation: 220ms ease-in both vsx-slide-out; }
+  html:not([data-slide-dir])::view-transition-new(root){ animation: 320ms ease-out both vsx-slide-in; }
+}
+@keyframes vsx-slide-out{ to{ transform:translateX(-4%); opacity:0; } }
+@keyframes vsx-slide-in{ from{ transform:translateX(4%); opacity:0; } }
+
+/* Same-document: sliding between the Overview / Live Demo / Dashboard tabs.
+   Only the main content area transitions — topbar and footer stay put. The
+   view-transition-name is scoped to the [data-slide-dir] window (set right
+   before startViewTransition, removed once it finishes) so it never leaks
+   into the cross-document transition above when navigating to/from an
+   Exhibit page. */
+html[data-slide-dir] #app{ view-transition-name: view-content; }
+@media (prefers-reduced-motion: no-preference){
+  html[data-slide-dir="forward"]::view-transition-old(view-content){ animation: 220ms ease-in both vsx-slide-out; }
+  html[data-slide-dir="forward"]::view-transition-new(view-content){ animation: 320ms ease-out both vsx-slide-in; }
+  html[data-slide-dir="backward"]::view-transition-old(view-content){ animation: 220ms ease-in both vsx-slide-out-rev; }
+  html[data-slide-dir="backward"]::view-transition-new(view-content){ animation: 320ms ease-out both vsx-slide-in-rev; }
+}
+@keyframes vsx-slide-out-rev{ to{ transform:translateX(4%); opacity:0; } }
+@keyframes vsx-slide-in-rev{ from{ transform:translateX(-4%); opacity:0; } }
 </style>
 </head>
 <body>
@@ -1400,6 +1431,7 @@ function checkRegistry(docNumber, name, dobISO){
    VIEW ROUTER
    ============================================================ */
 const views = ["overview","demo","dashboard"];
+let currentView = "overview";
 function moveTabIndicator(name){
   const nav = document.querySelector('.tabs');
   const indicator = document.querySelector('.tab-indicator');
@@ -1410,8 +1442,7 @@ function moveTabIndicator(name){
   indicator.style.width = btn.offsetWidth + 'px';
   indicator.style.opacity = '1';
 }
-function setView(name, opts){
-  opts = opts || {};
+function applyView(name, opts){
   views.forEach(v=>{
     document.getElementById('view-'+v).hidden = (v!==name);
   });
@@ -1421,6 +1452,21 @@ function setView(name, opts){
   moveTabIndicator(name);
   if(!opts.silent) window.scrollTo({top:0, behavior:'auto'});
   if(name==='dashboard') renderDashboard();
+}
+function setView(name, opts){
+  opts = opts || {};
+  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const canSlide = !!document.startViewTransition && !reduceMotion && name !== currentView;
+  if(canSlide){
+    const fromIdx = views.indexOf(currentView);
+    const toIdx = views.indexOf(name);
+    document.documentElement.setAttribute('data-slide-dir', toIdx >= fromIdx ? 'forward' : 'backward');
+    const t = document.startViewTransition(()=> applyView(name, opts));
+    t.finished.finally(()=> document.documentElement.removeAttribute('data-slide-dir'));
+  } else {
+    applyView(name, opts);
+  }
+  currentView = name;
 }
 document.querySelectorAll('.tab-btn').forEach(b=>{
   b.addEventListener('click', ()=> setView(b.dataset.view));
