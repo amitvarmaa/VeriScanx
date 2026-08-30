@@ -48,12 +48,12 @@ function computeRisk({
   //   them; the real panel scores them since a real officer needs a number).
   const t = Math.max(0, Math.min(100, Number(tamperScore) || 0));
   let score = 0;
-  score += t * 0.25;
+  score += t * 0.35;
   score += blacklistHit ? 30 : 0;
   score += duplicateHit ? 25 : 0;
-  score += mrzValid ? 0 : 12;
+  score += mrzValid ? 0 : 18;
   score += expired ? 8 : 0;
-  score += registryStatus === "mismatch" ? 28 : registryStatus === "unregistered" ? 26 : 0;
+  score += registryStatus === "mismatch" ? 16 : registryStatus === "unregistered" ? 14 : 0;
   score += qrStatus === "mismatch" ? 24 : 0;
   score += docTypeIssue ? 10 : 0;
   score += Math.min(15, (anomalyCount || 0) * 6);
