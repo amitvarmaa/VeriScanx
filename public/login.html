@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sign in — VeriScanx</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/panel.css">
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="login-brand">
+      <svg width="24" height="24" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M13 2 L23 6 V13 C23 19 18.5 23 13 24.5 C7.5 23 3 19 3 13 V6 Z" stroke="var(--accent)" stroke-width="1.6" fill="var(--accent-soft)"/>
+        <path d="M8.5 13.2 L11.5 16.2 L18 9.5" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      VeriScanx<small>OFFICER PANEL</small>
+    </div>
+    <p class="login-sub">Sign in with your issued credentials to access the verification panel.</p>
+    <div class="login-error" id="loginError"></div>
+    <form class="login-form" id="loginForm">
+      <div class="field">
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" autocomplete="username" required autofocus />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required />
+      </div>
+      <button class="btn btn-primary" type="submit" id="loginBtn" style="justify-content:center; margin-top:4px;">Sign in</button>
+    </form>
+    <div class="login-hint">
+      First run? Default seeded accounts —<br/>
+      <span class="mono">admin / VeriScanx@2026</span> (admin)<br/>
+      <span class="mono">officer1 / Officer@2026</span> (officer)<br/>
+      Change these from Account → Change password after signing in.
+    </div>
+  </div>
+</div>
+<script src="/js/api.js"></script>
+<script>
+(function(){
+  if (VeriScanx.getToken()) { window.location.href = '/panel.html'; return; }
+  const form = document.getElementById('loginForm');
+  const errBox = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    errBox.classList.remove('show');
+    btn.disabled = true; btn.textContent = 'Signing in…';
+    try{
+      const { token, user } = await VeriScanx.api('/api/auth/login', { method:'POST', body:{
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value
+      }, auth:false });
+      VeriScanx.setSession(token, user);
+      window.location.href = '/panel.html';
+    }catch(err){
+      errBox.textContent = err.message || 'Sign in failed';
+      errBox.classList.add('show');
+      btn.disabled = false; btn.textContent = 'Sign in';
+    }
+  });
+})();
+</script>
+</body>
+</html>

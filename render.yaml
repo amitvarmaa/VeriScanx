@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: veriscanx
+    runtime: node
+    plan: free
+    buildCommand: "echo 'no build step — zero dependencies'"
+    startCommand: "node --experimental-sqlite server.js"
+    envVars:
+      - key: NODE_VERSION
+        value: 22.11.0
+    healthCheckPath: /login.html
+    autoDeploy: true
+    # Free plan has no persistent disk — data/veriscanx.db resets on every
+    # restart/redeploy. To keep data permanently, upgrade this service to a
+    # paid instance type and uncomment the block below (see DEPLOY.md).
+    # disk:
+    #   name: veriscanx-data
+    #   mountPath: /opt/render/project/src/data
+    #   sizeGB: 1

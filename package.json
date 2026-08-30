@@ -1,0 +1,15 @@
+{
+  "name": "veriscanx-panel",
+  "version": "1.0.0",
+  "description": "VeriScanx — officer/admin backend panel (SIH 2026 prototype). Zero external dependencies — just Node.js.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node --experimental-sqlite server.js",
+    "dev": "node --experimental-sqlite --watch server.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "license": "MIT"
+}
