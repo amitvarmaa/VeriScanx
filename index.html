@@ -490,6 +490,131 @@ table.scans tr:last-child td{ border-bottom:none; }
 .reason-track{ grid-column:1/-1; height:7px; border-radius:999px; background:var(--surface-2); overflow:hidden; margin-top:-4px; }
 .reason-fill{ height:100%; background:var(--accent-strong); border-radius:999px; }
 
+/* ============================= LIGHT PANEL (contrast sections) ============================= */
+.light-panel{
+  position:relative; overflow:hidden; border-radius:var(--radius-l);
+  background:linear-gradient(180deg, #FFFDF9, #FFF2E2);
+  color:#1B140A; padding:56px 44px; border:1px solid rgba(27,20,10,0.06);
+  box-shadow:0 30px 70px -34px rgba(0,0,0,0.55);
+}
+@media (max-width:720px){ .light-panel{ padding:40px 22px; } }
+.light-panel .eyebrow{ color:#B8590A; }
+.light-panel .eyebrow::before{ background:#B8590A; }
+.light-panel h2, .light-panel h3, .light-panel h4{ color:#1B140A; }
+.light-panel .section-head p, .light-panel > p{ color:#5A4C38; }
+.light-panel .feature-card{ background:rgba(27,20,10,0.032); border-color:rgba(27,20,10,0.09); backdrop-filter:none; }
+.light-panel .feature-card:hover{ background:rgba(27,20,10,0.06); border-color:rgba(27,20,10,0.16); }
+.light-panel .feature-card h4{ color:#1B140A; }
+.light-panel .feature-card p{ color:#5A4C38; }
+.light-panel .feature-icon-wrap{ background:rgba(184,89,10,0.12); }
+.light-panel .feature-icon{ color:#B8590A; }
+.light-panel .feature-card ul{ margin:10px 0 0; padding-left:17px; font-size:12.5px; color:#5A4C38; line-height:1.75; }
+.light-panel .feature-card ul li::marker{ color:#B8590A; }
+.pill-badge{
+  display:inline-flex; align-items:center; gap:7px; background:#1B140A; color:#fff;
+  font-size:12px; font-weight:600; padding:7px 15px 7px 11px; border-radius:999px; margin-bottom:20px;
+}
+.pill-badge .dot{ width:7px; height:7px; border-radius:50%; background:var(--accent-a); display:inline-block; }
+.light-panel-glow{
+  position:absolute; width:420px; height:420px; border-radius:50%; top:-160px; right:-120px; pointer-events:none;
+  background:radial-gradient(circle, rgba(255,106,26,0.16), transparent 70%); filter:blur(60px);
+}
+
+/* ============================= NETWORK HUB (cross-border checks visual) ============================= */
+.hub-wrap{ position:relative; display:flex; justify-content:center; align-items:center; padding:60px 20px; min-height:420px; }
+.hub-glow{ position:absolute; width:460px; height:460px; border-radius:50%; background:radial-gradient(circle, rgba(255,106,26,0.24), transparent 70%); filter:blur(50px); pointer-events:none; }
+.hub-core{
+  position:relative; z-index:2; width:104px; height:104px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  background:radial-gradient(circle at 35% 30%, rgba(255,176,32,0.9), rgba(245,86,14,0.85) 55%, rgba(120,40,6,0.9) 100%);
+  box-shadow:0 0 0 1px rgba(255,255,255,0.12), 0 0 60px rgba(255,106,26,0.55);
+  font-family:var(--font-mono); font-weight:700; font-size:12px; color:#fff; text-align:center; line-height:1.3;
+}
+.hub-ring{ position:absolute; border:1px dashed var(--border-strong); border-radius:50%; z-index:1; }
+.hub-ring-1{ width:220px; height:220px; }
+.hub-ring-2{ width:360px; height:360px; }
+.hub-node{
+  position:absolute; z-index:2; display:flex; align-items:center; gap:8px; background:rgba(16,10,26,0.85);
+  border:1px solid var(--border-strong); border-radius:999px; padding:8px 14px 8px 10px; backdrop-filter:blur(8px);
+  font-size:12px; font-weight:600; color:var(--ink-2); white-space:nowrap; box-shadow:var(--shadow);
+}
+.hub-node i{ width:6px; height:6px; border-radius:50%; background:var(--accent-strong); display:inline-block; flex-shrink:0; animation:pulse 2.2s infinite; }
+.hub-node.n1{ top:2%;  left:6%; }
+.hub-node.n2{ top:2%;  right:4%; }
+.hub-node.n3{ top:44%; left:-2%; }
+.hub-node.n4{ top:44%; right:-4%; }
+.hub-node.n5{ bottom:2%; left:12%; }
+.hub-node.n6{ bottom:2%; right:8%; }
+@media (max-width:820px){
+  .hub-wrap{ min-height:0; padding:20px 0; }
+  .hub-ring, .hub-core{ display:none; }
+  .hub-node{ position:static; margin:0; white-space:normal; text-align:left; min-width:0; }
+  .hub-node-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; width:100%; }
+}
+@media (max-width:520px){
+  .hub-node-grid{ grid-template-columns:1fr; }
+}
+.hub-node-grid{ display:contents; }
+@media (max-width:820px){ .hub-node-grid{ display:grid; } }
+
+/* ============================= MODULE CARDS (product-style grid) ============================= */
+.module-card{
+  background:var(--surface); padding:24px 22px 20px; border:1px solid var(--border); border-radius:var(--radius-m);
+  backdrop-filter:blur(8px) saturate(115%); transition:transform .15s ease, border-color .15s ease, background .15s ease;
+  display:flex; flex-direction:column; height:100%;
+}
+.module-card:hover{ transform:translateY(-2px); border-color:var(--border-strong); background:rgba(255,255,255,0.06); }
+.module-card .feature-icon-wrap{ margin-bottom:14px; }
+.module-card h4{ font-size:15px; }
+.module-card p{ font-size:13px; color:var(--ink-2); margin-top:8px; line-height:1.55; flex:1; }
+.module-card .module-link{
+  margin-top:16px; padding-top:14px; border-top:1px solid var(--border); font-size:12.5px; font-weight:600;
+  color:var(--accent-strong); display:flex; align-items:center; gap:6px; cursor:pointer; font-family:var(--font-mono);
+  text-transform:uppercase; letter-spacing:.04em;
+}
+.module-card .module-link svg{ width:12px; height:12px; transition:transform .15s ease; }
+.module-card:hover .module-link svg{ transform:translateX(3px); }
+
+/* ============================= FAQ ACCORDION ============================= */
+.faq-list{ display:flex; flex-direction:column; gap:10px; max-width:820px; }
+.faq-item{ border:1px solid var(--border); border-radius:var(--radius-m); background:var(--surface); overflow:hidden; transition:border-color .15s; }
+.faq-item[data-open="true"]{ border-color:var(--border-strong); }
+.faq-q{
+  width:100%; text-align:left; background:transparent; border:none; color:var(--ink); font-size:14.5px; font-weight:600;
+  padding:18px 20px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:16px;
+  font-family:var(--font-body);
+}
+.faq-q svg{ flex-shrink:0; color:var(--ink-3); transition:transform .2s ease; }
+.faq-item[data-open="true"] .faq-q svg{ transform:rotate(180deg); color:var(--accent-strong); }
+.faq-a{ max-height:0; overflow:hidden; transition:max-height .28s ease; }
+.faq-item[data-open="true"] .faq-a{ max-height:240px; }
+.faq-a p{ padding:0 20px 18px; color:var(--ink-2); font-size:13.5px; line-height:1.65; margin:0; }
+
+/* ============================= DEMO-TEASER CHIP ROW ============================= */
+.chip-row{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin:22px 0 30px; }
+.demo-chip{
+  display:inline-flex; align-items:center; gap:7px; background:rgba(27,20,10,0.045); border:1px solid rgba(27,20,10,0.1);
+  border-radius:999px; padding:9px 16px; font-size:12.5px; font-weight:600; color:#1B140A;
+}
+.demo-chip .sw{ width:8px; height:8px; border-radius:50%; }
+
+/* ============================= FOOTER (multi-column) ============================= */
+.footer-grid{ display:grid; grid-template-columns:1.6fr repeat(3,1fr); gap:36px; padding:52px 0 34px; }
+@media (max-width:820px){ .footer-grid{ grid-template-columns:repeat(2,1fr); gap:28px; } }
+@media (max-width:520px){ .footer-grid{ grid-template-columns:1fr; } }
+.footer-col h5{ font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-3); font-weight:500; margin-bottom:14px; }
+.footer-col ul{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
+.footer-col a{ font-size:13.5px; color:var(--ink-2); text-decoration:none; }
+.footer-col a:hover{ color:var(--ink); }
+.footer-brand-blurb{ font-size:13px; color:var(--ink-3); line-height:1.6; max-width:38ch; margin-top:12px; }
+.footer-social{ display:flex; gap:10px; margin-top:18px; }
+.footer-social a{
+  width:32px; height:32px; border-radius:50%; border:1px solid var(--border-strong); display:flex; align-items:center;
+  justify-content:center; color:var(--ink-2); transition:border-color .15s, color .15s;
+}
+.footer-social a:hover{ border-color:var(--accent-strong); color:var(--accent-strong); }
+.footer-social svg{ width:14px; height:14px; }
+.footer-bottom{ border-top:1px solid var(--border); padding:22px 0; }
+
 /* Investigation report — invisible on screen, the only thing printed when
    "Download investigation report" calls window.print(). */
 #printReport{ display:none; }
@@ -618,10 +743,91 @@ table.scans tr:last-child td{ border-bottom:none; }
     </div>
   </div>
 
+  <div class="section" id="cross-checks">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">Exhibit 03 — Real-time cross-checks</div>
+        <h2>One decision, informed by every database that matters.</h2>
+        <p>A risk score is only as good as what it's checked against. Every scan fans out to the records that could catch a fraud attempt — before the officer even looks up.</p>
+      </div>
+      <div class="hub-wrap">
+        <div class="hub-glow"></div>
+        <div class="hub-ring hub-ring-1"></div>
+        <div class="hub-ring hub-ring-2"></div>
+        <div class="hub-core">VeriScanx<br/>CORE</div>
+        <div class="hub-node-grid">
+          <div class="hub-node n1"><i></i>National ID registry</div>
+          <div class="hub-node n2"><i></i>Blacklist &amp; watchlist DB</div>
+          <div class="hub-node n3"><i></i>International alert lists</div>
+          <div class="hub-node n4"><i></i>Prior-scan history</div>
+          <div class="hub-node n5"><i></i>Visa &amp; immigration records</div>
+          <div class="hub-node n6"><i></i>Partner border agencies</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="wrap">
+      <div class="light-panel">
+        <div class="light-panel-glow"></div>
+        <div class="section-head" style="max-width:680px;">
+          <span class="pill-badge"><span class="dot"></span>One pipeline, every checkpoint</span>
+          <h2>Deploys wherever the checkpoint actually is.</h2>
+          <p>The same verification pipeline runs identically whether it's bolted to an airport kiosk or opened on an officer's phone at a land crossing — same six checks, same risk score, same audit trail.</p>
+        </div>
+        <div class="feature-grid">
+          <div class="feature-card"><div class="feature-icon-wrap"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M10 18h4"/></svg></div><h4>Self-service kiosk</h4><p>Camera-equipped kiosks at airport e-gates and terminal entries — travelers scan their own document before reaching the counter.</p></div>
+          <div class="feature-card"><div class="feature-icon-wrap"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg></div><h4>Counter scanner</h4><p>The officer dashboard used in this demo — built for the manned counters at airports, seaports, and immigration desks.</p></div>
+          <div class="feature-card"><div class="feature-icon-wrap"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M10 18h4"/></svg></div><h4>Mobile officer app</h4><p>A phone-camera version for roaming checks — land border patrols, train platforms, and event entry points with no fixed kiosk.</p></div>
+          <div class="feature-card"><div class="feature-icon-wrap"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 17V7a2 2 0 012-2h5l2 2h5a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2z"/></svg></div><h4>Batch &amp; API access</h4><p>A verification API for travel agencies, visa processors, and event organizers to screen documents in bulk ahead of time.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="wrap">
+      <div class="light-panel">
+        <div class="light-panel-glow"></div>
+        <div class="section-head" style="max-width:680px;">
+          <div class="eyebrow">Exhibit 05 — Where it fits</div>
+          <h2>Built for every place a document gets checked at the border.</h2>
+        </div>
+        <div class="feature-grid">
+          <div class="feature-card">
+            <h4>Airports &amp; seaports</h4>
+            <ul><li>E-gate &amp; counter passport checks</li><li>Crew &amp; transit document screening</li><li>Peak-hour queue relief</li></ul>
+          </div>
+          <div class="feature-card">
+            <h4>Land border checkpoints</h4>
+            <ul><li>Vehicle &amp; pedestrian crossings</li><li>Low-connectivity offline mode</li><li>Mobile officer scanning</li></ul>
+          </div>
+          <div class="feature-card">
+            <h4>Railway &amp; metro border zones</h4>
+            <ul><li>Cross-border rail platform checks</li><li>High-throughput, low-dwell scanning</li><li>Ticketing-system hand-off</li></ul>
+          </div>
+          <div class="feature-card">
+            <h4>Visa &amp; consulate counters</h4>
+            <ul><li>Pre-screening at application intake</li><li>Duplicate-application detection</li><li>Supporting-document cross-check</li></ul>
+          </div>
+          <div class="feature-card">
+            <h4>Migration &amp; refugee centers</h4>
+            <ul><li>Identity de-duplication at scale</li><li>Handles damaged/worn documents</li><li>Full audit trail for case review</li></ul>
+          </div>
+          <div class="feature-card">
+            <h4>Events &amp; venue security</h4>
+            <ul><li>Accreditation &amp; ID verification</li><li>Watchlist screening at entry</li><li>Fast enough for gate throughput</li></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="section">
     <div class="wrap">
       <div class="section-head">
-        <div class="eyebrow">Exhibit 03 — What it catches</div>
+        <div class="eyebrow">Exhibit 06 — What it catches</div>
         <h2>Built around the ways travel documents actually get faked.</h2>
       </div>
       <div class="feature-grid">
@@ -638,7 +844,50 @@ table.scans tr:last-child td{ border-bottom:none; }
   <div class="section">
     <div class="wrap">
       <div class="section-head">
-        <div class="eyebrow">Exhibit 04 — Architecture</div>
+        <div class="eyebrow">Exhibit 07 — Under the hood</div>
+        <h2>Six modules, one pipeline.</h2>
+        <p>Each check runs independently and contributes its own weighted points to the final risk score — an officer can see exactly which module flagged what, not just a pass/fail.</p>
+      </div>
+      <div class="feature-grid">
+        <div class="module-card"><div class="feature-icon-wrap"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 13l5-4 4 3 5-6 4 4"/></svg></div><h4>Image forensics (ELA)</h4><p>Error-level analysis re-compresses the image and diffs it against the original, live in the browser — no upload needed to spot a re-print.</p><div class="module-link">See it run in the demo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div></div>
+        <div class="module-card"><div class="feature-icon-wrap"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h16M4 12h10M4 19h7"/><circle cx="19" cy="19" r="2.5"/></svg></div><h4>MRZ &amp; ICAO checksum</h4><p>Real ICAO Doc 9303 checksum math validates every digit of the machine-readable zone — not a simulated pass/fail.</p><div class="module-link">See it run in the demo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div></div>
+        <div class="module-card"><div class="feature-icon-wrap"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l8 4v5c0 5-3.4 8-8 9-4.6-1-8-4-8-9V7z"/><path d="M9 12h6M12 9v6"/></svg></div><h4>Blacklist &amp; watchlist</h4><p>Every document number is checked against the live blacklist table on every single scan, cross-officer and persistent.</p><div class="module-link">See it run in the demo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div></div>
+        <div class="module-card"><div class="feature-icon-wrap"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 4v16"/></svg></div><h4>National registry cross-check</h4><p>Confirms the document number is actually registered to the name printed on it — not just that the number "looks" valid.</p><div class="module-link">See it run in the demo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div></div>
+        <div class="module-card"><div class="feature-icon-wrap"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8.5" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg></div><h4>Face verification &amp; liveness</h4><p>Matches the document photo against a live camera capture, with a blink-based liveness check to catch a printed-photo replay.</p><div class="module-link">See it run in the demo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div></div>
+        <div class="module-card"><div class="feature-icon-wrap"><svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="9" r="3.2"/><circle cx="17" cy="9" r="3.2" opacity=".5"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/></svg></div><h4>Duplicate &amp; mutation detection</h4><p>Searches scan history for the same identity under a slightly altered name or date of birth — a common way to dodge exact-match checks.</p><div class="module-link">See it run in the demo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="wrap">
+      <div class="light-panel" style="text-align:center;">
+        <div class="light-panel-glow"></div>
+        <div class="section-head" style="max-width:600px; margin:0 auto;">
+          <span class="pill-badge" style="margin-left:auto; margin-right:auto;"><span class="dot"></span>No install, no account</span>
+          <h2>See it catch a forgery for yourself.</h2>
+          <p>Upload a document image or try a fictional specimen — the image-forensics and MRZ checks run for real, right in your browser.</p>
+        </div>
+        <div class="chip-row">
+          <span class="demo-chip"><span class="sw" style="background:#B8590A;"></span>Image forensics</span>
+          <span class="demo-chip"><span class="sw" style="background:#1B7A4A;"></span>MRZ checksum</span>
+          <span class="demo-chip"><span class="sw" style="background:#B03A3A;"></span>Blacklist match</span>
+          <span class="demo-chip"><span class="sw" style="background:#2A5C99;"></span>Registry check</span>
+          <span class="demo-chip"><span class="sw" style="background:#7A4A9E;"></span>Face &amp; liveness</span>
+        </div>
+        <div class="hero-cta" style="justify-content:center;">
+          <button class="btn btn-primary" data-goto="demo">Run the live demo
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">Exhibit 08 — Architecture</div>
         <h2>Five layers, one pipeline.</h2>
       </div>
       <div class="arch">
@@ -661,16 +910,19 @@ table.scans tr:last-child td{ border-bottom:none; }
 
   <div class="section">
     <div class="wrap">
-      <div class="section-head">
-        <div class="eyebrow">Exhibit 05 — Projected impact</div>
-        <h2>What we're targeting for the pilot.</h2>
-        <p>These are design targets for the prototype, not measured production figures — they're what the pipeline above is architected to hit.</p>
-      </div>
-      <div class="impact-grid">
-        <div class="impact-card"><div class="impact-num">70%↓</div><span>Average counter processing time vs. fully manual checks</span></div>
-        <div class="impact-card"><div class="impact-num">6</div><span>Independent checks run on every single document</span></div>
-        <div class="impact-card"><div class="impact-num">~5–10%</div><span>Share of scans expected to route to manual review</span></div>
-        <div class="impact-card"><div class="impact-num">100%</div><span>Of scans logged with a full, auditable decision trail</span></div>
+      <div class="light-panel">
+        <div class="light-panel-glow"></div>
+        <div class="section-head">
+          <div class="eyebrow">Exhibit 09 — Projected impact</div>
+          <h2>What we're targeting for the pilot.</h2>
+          <p>These are design targets for the prototype, not measured production figures — they're what the pipeline above is architected to hit.</p>
+        </div>
+        <div class="feature-grid">
+          <div class="feature-card" style="text-align:center;"><div class="impact-num" style="color:#B8590A;">70%↓</div><p style="margin-top:8px;">Average counter processing time vs. fully manual checks</p></div>
+          <div class="feature-card" style="text-align:center;"><div class="impact-num" style="color:#B8590A;">6</div><p style="margin-top:8px;">Independent checks run on every single document</p></div>
+          <div class="feature-card" style="text-align:center;"><div class="impact-num" style="color:#B8590A;">~5–10%</div><p style="margin-top:8px;">Share of scans expected to route to manual review</p></div>
+          <div class="feature-card" style="text-align:center;"><div class="impact-num" style="color:#B8590A;">100%</div><p style="margin-top:8px;">Of scans logged with a full, auditable decision trail</p></div>
+        </div>
       </div>
     </div>
   </div>
@@ -678,7 +930,38 @@ table.scans tr:last-child td{ border-bottom:none; }
   <div class="section">
     <div class="wrap">
       <div class="section-head">
-        <div class="eyebrow">Exhibit 06 — Team</div>
+        <div class="eyebrow">Exhibit 10 — Questions officers ask</div>
+        <h2>Frequently asked questions.</h2>
+      </div>
+      <div class="faq-list">
+        <div class="faq-item" data-open="true">
+          <button class="faq-q">Does VeriScanx connect to real government databases?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
+          <div class="faq-a"><p>Not in this demo — the public site and its "Live Demo" tab query a small illustrative dataset so anyone can try it without touching a real system. The officer panel is architected against the same schema a real registry/blacklist connector would use, so wiring in an actual government feed is a connector swap, not a redesign.</p></div>
+        </div>
+        <div class="faq-item" data-open="false">
+          <button class="faq-q">What happens if the connection to a database drops mid-scan?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
+          <div class="faq-a"><p>Image forensics and MRZ checksum validation run entirely client-side, so they still work offline. Checks that need a live lookup (blacklist, registry, prior-scan history) are clearly marked as unavailable rather than silently skipped, and the document is routed to manual review instead of guessing.</p></div>
+        </div>
+        <div class="faq-item" data-open="false">
+          <button class="faq-q">Can an officer override the risk score?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
+          <div class="faq-a"><p>Yes — the score is a recommendation, not an automatic decision. Every override is logged against the officer's account alongside the original score and the reason given, so the audit trail always shows both what the system found and what the human decided.</p></div>
+        </div>
+        <div class="faq-item" data-open="false">
+          <button class="faq-q">What document types does it support?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
+          <div class="faq-a"><p>Passports, national ID/Aadhaar-style cards, driving licences, and visas each have their own validation rules (expiry logic, minimum age, validity window) — the pipeline checks which document type it's looking at and applies the right rule set automatically.</p></div>
+        </div>
+        <div class="faq-item" data-open="false">
+          <button class="faq-q">Is the face verification step required?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
+          <div class="faq-a"><p>No — it's a separate, optional check the officer can run on top of the risk score, not folded into it. It runs entirely on-device (camera never leaves the browser) with a blink-based liveness check so a printed photo held up to the camera can't pass as a live capture.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">Exhibit 11 — Team</div>
         <h2>Built for SIH 2026.</h2>
       </div>
       <div class="team-grid">
@@ -710,9 +993,47 @@ table.scans tr:last-child td{ border-bottom:none; }
   </div>
 
   <footer class="footer">
-    <div class="wrap footer-inner">
-      <span>VeriScanx — built for Smart India Hackathon 2026. Prototype for demonstration purposes; sample documents are fictional.</span>
-      <span class="mono">v0.1 · PS submission draft</span>
+    <div class="wrap">
+      <div class="footer-grid">
+        <div class="footer-col">
+          <div class="brand"><svg class="brand-mark" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M13 2 L23 6 V13 C23 19 18.5 23 13 24.5 C7.5 23 3 19 3 13 V6 Z" stroke="var(--accent-strong)" stroke-width="1.6" fill="var(--accent-soft)"/><path d="M8.5 13.2 L11.5 16.2 L18 9.5" stroke="var(--accent-strong)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>VeriScanx</div>
+          <p class="footer-brand-blurb">Computer-vision document verification and fraud detection for border &amp; immigration checkpoints. Built for Smart India Hackathon 2026.</p>
+          <div class="footer-social">
+            <a href="#" aria-label="GitHub"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.7.5.8 5.4.8 11.7c0 5 3.2 9.3 7.8 10.8.6.1.8-.2.8-.6v-2.2c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.4-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2.9-.3 1.9-.4 2.9-.4s2 .1 2.9.4c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.7.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .4.2.7.8.6 4.6-1.5 7.8-5.8 7.8-10.8C23.2 5.4 18.3.5 12 .5z"/></svg></a>
+            <a href="#" aria-label="LinkedIn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.98 3.5a2.5 2.5 0 11-.02 5 2.5 2.5 0 01.02-5zM3 9h4v12H3zM9 9h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.55 4.78 5.86V21h-4v-5.4c0-1.3-.02-2.96-1.8-2.96-1.8 0-2.08 1.4-2.08 2.86V21H9z"/></svg></a>
+            <a href="#" aria-label="Email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></a>
+          </div>
+        </div>
+        <div class="footer-col">
+          <h5>Product</h5>
+          <ul>
+            <li><a data-scroll="#pipeline">How it works</a></li>
+            <li><a data-scroll="#cross-checks">Cross-checks</a></li>
+            <li><a data-goto="demo">Live demo</a></li>
+            <li><a data-goto="dashboard">Officer dashboard</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h5>Project</h5>
+          <ul>
+            <li><a data-scroll="#pipeline">Architecture</a></li>
+            <li><a href="#">Team</a></li>
+            <li><a href="https://github.com/amitvarmaa/VeriScanx" target="_blank" rel="noopener">GitHub repo</a></li>
+            <li><a href="#">Submission docs</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h5>Contact</h5>
+          <ul>
+            <li><a href="#">Smart India Hackathon 2026</a></li>
+            <li><a href="#">Border &amp; Immigration Tech track</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom footer-inner">
+        <span>VeriScanx — built for Smart India Hackathon 2026. Prototype for demonstration purposes; sample documents are fictional.</span>
+        <span class="mono">v0.1 · PS submission draft</span>
+      </div>
     </div>
   </footer>
 
@@ -1052,6 +1373,19 @@ document.querySelectorAll('[data-scroll]').forEach(b=>{
     const el = document.querySelector(b.dataset.scroll);
     if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
   });
+});
+
+/* FAQ accordion — one open at a time */
+document.querySelectorAll('.faq-item').forEach(item=>{
+  item.querySelector('.faq-q').addEventListener('click', ()=>{
+    const willOpen = item.getAttribute('data-open') !== 'true';
+    document.querySelectorAll('.faq-item').forEach(i=> i.setAttribute('data-open','false'));
+    item.setAttribute('data-open', willOpen ? 'true' : 'false');
+  });
+});
+/* module cards on the "under the hood" grid — jump to the live demo */
+document.querySelectorAll('.module-link').forEach(el=>{
+  el.addEventListener('click', ()=> setView('demo'));
 });
 
 /* live clocks */
