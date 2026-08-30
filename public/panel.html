@@ -60,6 +60,16 @@
         <div class="panel-head"><h3>Top flag reasons — last 14 days</h3></div>
         <div id="reasonList"></div>
       </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="panel-head">
+          <h3>Identity graph <span class="tag tag-live" style="margin-left:6px;">LIVE — LAST 100 SCANS</span></h3>
+        </div>
+        <div id="identityGraph"></div>
+        <div id="identityGraphConflictsPanel" hidden style="margin-top:10px;">
+          <div style="font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-3); font-family:var(--font-mono); margin-bottom:4px;">Conflicts</div>
+          <div id="identityGraphConflicts"></div>
+        </div>
+      </div>
     </section>
 
     <section class="view" id="view-verify" hidden>
@@ -87,6 +97,7 @@
             <div class="results" id="resultsGrid"></div>
             <div class="results-actions">
               <button class="btn btn-ghost btn-sm" id="scanAnother">↺ Scan another document</button>
+              <button class="btn btn-ghost btn-sm" id="downloadReportBtn">⬇ Download investigation report</button>
               <button class="btn btn-primary btn-sm" id="goToLog">View in scans log →</button>
             </div>
           </div>
@@ -195,10 +206,17 @@
 </div>
 <div class="toast" id="toast"></div>
 
+<!-- Printable investigation report — hidden on screen (#printReport{display:none}),
+     shown only under @media print when the "Download investigation report" button
+     calls window.print(); the browser's own Save-as-PDF is the "download". -->
+<div id="printReport"></div>
+
 <script src="/js/api.js"></script>
 <script src="/js/charts.js"></script>
 <!-- QR / chip code decoding used by the Verify & scan flow -->
 <script src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
+<!-- Face verification (document photo vs. live camera capture), used by the Verify & scan flow -->
+<script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
 <script src="/js/verify.js"></script>
 <script src="/js/panel.js"></script>
 </body>

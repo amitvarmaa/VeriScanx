@@ -87,6 +87,95 @@
       VeriScanxCharts.renderBand(document.getElementById('bandChart'), stats.bandCounts);
       VeriScanxCharts.renderReasons(document.getElementById('reasonList'), stats.topReasons);
     }catch(err){ toast(err.message, true); }
+    loadIdentityGraph();
+  }
+
+  /* ================= IDENTITY GRAPH =================
+     Connections/duplicates/conflicts across the real, persistent scan
+     history (the last 100 scans, DB-backed and cross-officer — strictly
+     more than the public demo's single-browser-session version). Built
+     as a simple bipartite graph (identities on one side, document
+     numbers on the other) so it renders deterministically with plain
+     SVG and no graphing library. */
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  function buildIdentityGraph(scans){
+    const rows = scans.filter(s=>s.docNumber);
+    const identities = new Map(); // "name|dob" -> {key,name,dob,docs:Set}
+    const docs = new Map();       // docNumber -> {key,docNumber,identities:Set}
+    const edgeSet = new Set();
+    rows.forEach(s=>{
+      const idKey = `${(s.travelerName||'').toLowerCase()}|${s.dob||''}`;
+      if(!identities.has(idKey)) identities.set(idKey, {key:idKey, name:s.travelerName||'Unnamed traveler', dob:s.dob, docs:new Set()});
+      identities.get(idKey).docs.add(s.docNumber);
+      if(!docs.has(s.docNumber)) docs.set(s.docNumber, {key:s.docNumber, docNumber:s.docNumber, identities:new Set()});
+      docs.get(s.docNumber).identities.add(idKey);
+      edgeSet.add(idKey+'::'+s.docNumber);
+    });
+    const edges = [...edgeSet].map(k=>{ const [idKey,docKey] = k.split('::'); return {idKey, docKey}; });
+    const conflicts = [];
+    docs.forEach(d=>{
+      if(d.identities.size>1){
+        const names = [...d.identities].map(k=>identities.get(k).name);
+        conflicts.push(`Document ${d.docNumber} is linked to ${d.identities.size} different identities: ${names.join(', ')}`);
+      }
+    });
+    identities.forEach(idn=>{
+      if(idn.docs.size>1){
+        conflicts.push(`${idn.name} is linked to ${idn.docs.size} different document numbers: ${[...idn.docs].join(', ')}`);
+      }
+    });
+    return { identities:[...identities.values()], docs:[...docs.values()], edges, conflicts };
+  }
+
+  async function loadIdentityGraph(){
+    const container = document.getElementById('identityGraph');
+    const listPanel = document.getElementById('identityGraphConflictsPanel');
+    const listEl = document.getElementById('identityGraphConflicts');
+    if(!container) return;
+    let scans;
+    try{
+      const data = await VeriScanx.api('/api/scans?limit=100');
+      scans = data.items || [];
+    }catch(err){
+      container.innerHTML = `<p class="empty-note">Could not load scan history for the identity graph.</p>`;
+      return;
+    }
+    const g = buildIdentityGraph(scans);
+    if(!g.identities.length){
+      container.innerHTML = '<p class="empty-note">No scans on record yet — run a few in Verify &amp; scan to build the identity graph.</p>';
+      if(listPanel) listPanel.hidden = true;
+      return;
+    }
+    const ROWH = 30, PADY = 14, W = 560;
+    const H = PADY*2 + Math.max(g.identities.length, g.docs.length, 1)*ROWH;
+    const idY = k => PADY + g.identities.findIndex(n=>n.key===k)*ROWH + ROWH/2;
+    const docY = k => PADY + g.docs.findIndex(n=>n.key===k)*ROWH + ROWH/2;
+    let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;" role="img" aria-label="Identity graph">`;
+    g.edges.forEach(e=>{
+      const idn = g.identities.find(n=>n.key===e.idKey);
+      const doc = g.docs.find(n=>n.key===e.docKey);
+      const conflict = doc.identities.size>1 || idn.docs.size>1;
+      svg += `<line x1="180" y1="${idY(e.idKey)}" x2="406" y2="${docY(e.docKey)}" stroke="${conflict?'var(--critical)':'var(--grid-line)'}" stroke-width="${conflict?2:1.4}" stroke-dasharray="${conflict?'4,3':'none'}"/>`;
+    });
+    g.identities.forEach((n,i)=>{
+      const y = PADY + i*ROWH + ROWH/2;
+      const flagged = n.docs.size>1;
+      svg += `<circle cx="14" cy="${y}" r="4.5" fill="${flagged?'var(--critical)':'var(--accent-strong)'}"/>`;
+      svg += `<text x="26" y="${y+4}" font-size="11" font-family="var(--font-body)" fill="var(--ink-2)">${escapeHtml(n.name)} · ${n.dob||'—'}</text>`;
+    });
+    g.docs.forEach((d,i)=>{
+      const y = PADY + i*ROWH + ROWH/2;
+      const flagged = d.identities.size>1;
+      svg += `<circle cx="412" cy="${y}" r="4.5" fill="${flagged?'var(--critical)':'var(--seq-500)'}"/>`;
+      svg += `<text x="424" y="${y+4}" font-size="11" font-family="var(--font-mono)" fill="var(--ink-2)">${escapeHtml(d.docNumber)}</text>`;
+    });
+    svg += `</svg>`;
+    container.innerHTML = svg;
+    if(listPanel && listEl){
+      listPanel.hidden = g.conflicts.length===0;
+      listEl.innerHTML = g.conflicts.map(c=>`<div class="idgraph-conflict">⚠ ${escapeHtml(c)}</div>`).join('');
+    }
   }
 
   /* ================= VERIFY & SCAN ================= */
@@ -101,7 +190,8 @@
     sampleCleanBtn: document.getElementById('sampleClean'),
     sampleFlaggedBtn: document.getElementById('sampleFlagged'),
     scanAnotherBtn: document.getElementById('scanAnother'),
-    onSaved: ()=> toast('Scan saved to database.')
+    downloadReportBtn: document.getElementById('downloadReportBtn'),
+    onSaved: ()=> { toast('Scan saved to database.'); loadIdentityGraph(); }
   });
   document.getElementById('goToLog').addEventListener('click', ()=> setView('scans'));
 
