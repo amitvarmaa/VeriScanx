@@ -345,6 +345,29 @@ try {
   if (!/duplicate column/i.test(e.message || "")) throw e;
 }
 
+// Migration: extended registry intelligence fields (nationality, document
+// metadata, criminal/security record, identity history, travel/border
+// history, AI verification results, system record) added post-launch.
+// Same try/ignore-duplicate-column pattern as above -- one ALTER per
+// column since SQLite has no "ADD COLUMN IF NOT EXISTS".
+const REGISTRY_EXTRA_COLUMNS = [
+  "nationality", "doc_type", "doc_issue_date", "doc_expiry_date", "issuing_authority",
+  "criminal_record_status", "criminal_record_details", "previous_case_reference", "offence_category", "case_status",
+  "investigation_status", "previous_security_alerts", "watchlist_status", "blacklist_status", "blacklist_reason",
+  "previous_identities", "aliases", "duplicate_identity_status", "cross_document_match_history", "previous_verification_history", "previous_risk_flags",
+  "previous_travel_record", "entry_exit_history", "visa_history", "previous_border_alerts", "previous_rejection_flags",
+  "face_match_result", "face_match_confidence", "doc_authenticity_result", "tampering_detection_result", "ocr_result",
+  "mrz_validation_result", "forensic_analysis_result", "database_crosscheck_result", "overall_risk_score", "risk_level", "final_verification_status",
+  "last_updated", "last_verification_date", "record_source", "audit_log"
+];
+for (const __col of REGISTRY_EXTRA_COLUMNS) {
+  try {
+    db.exec(`ALTER TABLE registry ADD COLUMN ${__col} TEXT`);
+  } catch (e) {
+    if (!/duplicate column/i.test(e.message || "")) throw e;
+  }
+}
+
 // The 49 real passenger/citizen records from the government-style dataset
 // supplied for the hackathon demo, each with an on-file reference photo.
 // Seeded once into the `registry` table below.
@@ -524,8 +547,19 @@ function normalizeDocNum(s) {
   return String(s || "").replace(/[^0-9]/g, "");
 }
 
+const REGISTRY_EXTRA_FIELD_MAP = {
+  nationality: "nationality", docType: "doc_type", docIssueDate: "doc_issue_date", docExpiryDate: "doc_expiry_date", issuingAuthority: "issuing_authority",
+  criminalRecordStatus: "criminal_record_status", criminalRecordDetails: "criminal_record_details", previousCaseReference: "previous_case_reference", offenceCategory: "offence_category", caseStatus: "case_status",
+  investigationStatus: "investigation_status", previousSecurityAlerts: "previous_security_alerts", watchlistStatus: "watchlist_status", blacklistStatus: "blacklist_status", blacklistReason: "blacklist_reason",
+  previousIdentities: "previous_identities", aliases: "aliases", duplicateIdentityStatus: "duplicate_identity_status", crossDocumentMatchHistory: "cross_document_match_history", previousVerificationHistory: "previous_verification_history", previousRiskFlags: "previous_risk_flags",
+  previousTravelRecord: "previous_travel_record", entryExitHistory: "entry_exit_history", visaHistory: "visa_history", previousBorderAlerts: "previous_border_alerts", previousRejectionFlags: "previous_rejection_flags",
+  faceMatchResult: "face_match_result", faceMatchConfidence: "face_match_confidence", docAuthenticityResult: "doc_authenticity_result", tamperingDetectionResult: "tampering_detection_result", ocrResult: "ocr_result",
+  mrzValidationResult: "mrz_validation_result", forensicAnalysisResult: "forensic_analysis_result", databaseCrosscheckResult: "database_crosscheck_result", overallRiskScore: "overall_risk_score", riskLevel: "risk_level", finalVerificationStatus: "final_verification_status",
+  lastUpdated: "last_updated", lastVerificationDate: "last_verification_date", recordSource: "record_source", auditLog: "audit_log",
+};
+
 function serializeEntry(row) {
-  return {
+  const base = {
     id: row.id,
     docId: row.doc_id,
     name: row.name,
@@ -537,6 +571,10 @@ function serializeEntry(row) {
     photo: row.photo || null,
     createdAt: row.created_at,
   };
+  for (const camelKey of Object.keys(REGISTRY_EXTRA_FIELD_MAP)) {
+    base[camelKey] = row[REGISTRY_EXTRA_FIELD_MAP[camelKey]] || null;
+  }
+  return base;
 }
 
 // Returns null when there's no document number to check, otherwise
@@ -553,7 +591,7 @@ function checkRegistry(docNumber, name, dob) {
   return { status: "verified", entry };
 }
 
-module.exports = { checkRegistry, normalizeDocNum, serializeEntry };
+module.exports = { checkRegistry, normalizeDocNum, serializeEntry, REGISTRY_EXTRA_FIELD_MAP };
 });
 
 // ---- server/omnisight.js ----
@@ -919,7 +957,7 @@ __define("routes/registry", function (module, exports, require) {
 const db = require("db");
 const { HttpError, getUser, requireAdmin } = require("context");
 const { sendJSON, readJSONBody } = require("http-helpers");
-const { normalizeDocNum, checkRegistry, serializeEntry } = require("registry-check");
+const { normalizeDocNum, checkRegistry, serializeEntry, REGISTRY_EXTRA_FIELD_MAP } = require("registry-check");
 
 module.exports = function registerRegistryRoutes(router) {
   router.get("/api/registry", async (req, res) => {
@@ -975,14 +1013,43 @@ module.exports = function registerRegistryRoutes(router) {
     const existing = db.prepare("SELECT 1 FROM registry WHERE doc_number = ?").get(docNumber);
     if (existing) throw new HttpError(409, "A registry record with that document number already exists");
 
+    const extraCols = [];
+    const extraPlaceholders = [];
+    const extraVals = [];
+    for (const camelKey of Object.keys(REGISTRY_EXTRA_FIELD_MAP)) {
+      if (Object.prototype.hasOwnProperty.call(body, camelKey)) {
+        extraCols.push(REGISTRY_EXTRA_FIELD_MAP[camelKey]);
+        extraPlaceholders.push("?");
+        extraVals.push(body[camelKey] === undefined || body[camelKey] === null ? null : String(body[camelKey]));
+      }
+    }
+    const colsSql = ["doc_id", "name", "dob", "gender", "city", "state", "doc_number", "photo", "added_by", ...extraCols].join(", ");
+    const placeholdersSql = ["?", "?", "?", "?", "?", "?", "?", "?", "?", ...extraPlaceholders].join(",");
     const result = db
-      .prepare(`
-        INSERT INTO registry (doc_id, name, dob, gender, city, state, doc_number, photo, added_by)
-        VALUES (?,?,?,?,?,?,?,?,?)
-      `)
-      .run(docId, name, dob, gender, city, state, docNumber, photo, user.id);
+      .prepare(`INSERT INTO registry (${colsSql}) VALUES (${placeholdersSql})`)
+      .run(docId, name, dob, gender, city, state, docNumber, photo, user.id, ...extraVals);
     const row = db.prepare("SELECT * FROM registry WHERE id = ?").get(result.lastInsertRowid);
     sendJSON(res, 201, { item: serializeEntry(row) });
+  });
+
+  router.patch("/api/registry/:id", async (req, res, params) => {
+    const user = getUser(req);
+    requireAdmin(user);
+    const body = await readJSONBody(req);
+    const sets = [];
+    const vals = [];
+    for (const camelKey of Object.keys(REGISTRY_EXTRA_FIELD_MAP)) {
+      if (Object.prototype.hasOwnProperty.call(body, camelKey)) {
+        sets.push(`${REGISTRY_EXTRA_FIELD_MAP[camelKey]} = ?`);
+        vals.push(body[camelKey] === undefined || body[camelKey] === null ? null : String(body[camelKey]));
+      }
+    }
+    if (!sets.length) throw new HttpError(400, "No updatable fields provided");
+    vals.push(params.id);
+    const info = db.prepare(`UPDATE registry SET ${sets.join(", ")} WHERE id = ?`).run(...vals);
+    if (info.changes === 0) throw new HttpError(404, "Record not found");
+    const row = db.prepare("SELECT * FROM registry WHERE id = ?").get(params.id);
+    sendJSON(res, 200, { item: serializeEntry(row) });
   });
 
   router.delete("/api/registry/:id", async (req, res, params) => {
