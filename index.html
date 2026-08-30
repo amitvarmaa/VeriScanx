@@ -490,6 +490,33 @@ table.scans tr:last-child td{ border-bottom:none; }
 .reason-track{ grid-column:1/-1; height:7px; border-radius:999px; background:var(--surface-2); overflow:hidden; margin-top:-4px; }
 .reason-fill{ height:100%; background:var(--accent-strong); border-radius:999px; }
 
+/* ============================= INTRO SPLASH ============================= */
+#introSplash{
+  position:fixed; inset:0; z-index:999; display:flex; align-items:center; justify-content:center;
+  background:
+    radial-gradient(640px 420px at 50% 48%, rgba(255,106,26,0.18), transparent 70%),
+    var(--bg);
+  transition:opacity .5s ease, visibility .5s ease;
+}
+#introSplash.hide{ opacity:0; visibility:hidden; pointer-events:none; }
+.intro-logo{ width:60px; height:60px; animation:introPulse 1.15s ease-in-out infinite; filter:drop-shadow(0 0 26px rgba(255,106,26,0.6)); }
+@keyframes introPulse{ 0%,100%{ transform:scale(1); opacity:.82; } 50%{ transform:scale(1.1); opacity:1; } }
+@media (prefers-reduced-motion: reduce){
+  #introSplash{ transition:none; }
+  .intro-logo{ animation:none; }
+}
+
+/* ============================= HERO LOAD-IN ============================= */
+.hero-anim{ transition:opacity .7s ease, transform .7s ease; }
+body:not(.loaded) .hero-anim{ opacity:0; transform:translateY(20px); }
+
+/* ============================= SCROLL-REVEAL ============================= */
+.reveal{ opacity:0; transform:translateY(26px); transition:opacity .65s ease, transform .65s ease; }
+.reveal.in-view{ opacity:1; transform:none; }
+@media (prefers-reduced-motion: reduce){
+  .hero-anim, .reveal{ transition:none !important; opacity:1 !important; transform:none !important; }
+}
+
 /* ============================= LIGHT PANEL (contrast sections) ============================= */
 .light-panel{
   position:relative; overflow:hidden; border-radius:var(--radius-l);
@@ -635,6 +662,13 @@ table.scans tr:last-child td{ border-bottom:none; }
 </head>
 <body>
 
+<div id="introSplash" aria-hidden="true">
+  <svg class="intro-logo" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M13 2 L23 6 V13 C23 19 18.5 23 13 24.5 C7.5 23 3 19 3 13 V6 Z" stroke="var(--accent-strong)" stroke-width="1.4" fill="var(--accent-soft)"/>
+    <path d="M8.5 13.2 L11.5 16.2 L18 9.5" stroke="var(--accent-strong)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </svg>
+</div>
+
 <header class="topbar">
   <div class="wrap topbar-inner">
     <div class="brand">
@@ -658,7 +692,7 @@ table.scans tr:last-child td{ border-bottom:none; }
 
   <div class="hero">
     <div class="wrap hero-grid">
-      <div>
+      <div class="hero-anim" style="transition-delay:.05s;">
         <div class="eyebrow">Smart India Hackathon 2026 — Border &amp; Immigration Tech</div>
         <h1>Verify every travel document in seconds, <em>not minutes.</em></h1>
         <p class="hero-sub">VeriScanx is a computer-vision pipeline that inspects passports and ID documents for tampering, cross-checks passenger details against live government and international records, catches duplicate or blacklisted identities, and hands the counter officer one clear risk score — before the traveler has finished stepping up to the desk.</p>
@@ -674,7 +708,7 @@ table.scans tr:last-child td{ border-bottom:none; }
           <div class="hero-stat"><b class="tnum">24/7</b><span>Kiosk &amp; counter ready</span></div>
         </div>
       </div>
-      <div class="scan-card-wrap">
+      <div class="scan-card-wrap hero-anim" style="transition-delay:.18s;">
         <div class="float-chip float-chip-a"><b>&lt;8s</b><span>Target verify time</span></div>
         <div class="float-chip float-chip-b"><b>6</b><span>Checks per scan</span></div>
         <div class="scan-card">
@@ -1374,6 +1408,53 @@ document.querySelectorAll('[data-scroll]').forEach(b=>{
     if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
   });
 });
+
+/* ============================================================
+   INTRO SPLASH + SCROLL-REVEAL ANIMATIONS
+   ============================================================ */
+(function(){
+  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Splash: pulse the logo briefly, then fade out and reveal the hero.
+  let dismissed = false;
+  function dismissSplash(){
+    if(dismissed) return;
+    dismissed = true;
+    document.body.classList.add('loaded');
+    const splash = document.getElementById('introSplash');
+    if(splash){
+      splash.classList.add('hide');
+      setTimeout(()=> splash.remove(), 600);
+    }
+  }
+  if(reduceMotion){
+    dismissSplash();
+  } else {
+    window.addEventListener('load', ()=> setTimeout(dismissSplash, 550));
+    setTimeout(dismissSplash, 2200); // fallback in case 'load' is slow/blocked
+  }
+
+  // Scroll-reveal: fade/slide sections and cards in as they enter view.
+  // Scoped to the Overview view only — Demo/Dashboard are tab-switched, not scrolled.
+  if(reduceMotion) return;
+  const overview = document.getElementById('view-overview');
+  if(!overview) return;
+  const targets = Array.from(overview.querySelectorAll('.section-head, .feature-card, .module-card, .faq-item, .team-card, .light-panel, .hub-wrap, .cta-panel'));
+  targets.forEach(el=> el.classList.add('reveal'));
+  overview.querySelectorAll('.feature-grid, .impact-grid, .team-grid').forEach(grid=>{
+    Array.from(grid.children).forEach((child,i)=>{ child.style.transitionDelay = Math.min(i*60,300)+'ms'; });
+  });
+  if(!('IntersectionObserver' in window)){
+    targets.forEach(el=> el.classList.add('in-view'));
+    return;
+  }
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){ entry.target.classList.add('in-view'); io.unobserve(entry.target); }
+    });
+  }, { threshold:0.12, rootMargin:'0px 0px -60px 0px' });
+  targets.forEach(el=> io.observe(el));
+})();
 
 /* FAQ accordion — one open at a time */
 document.querySelectorAll('.faq-item').forEach(item=>{
