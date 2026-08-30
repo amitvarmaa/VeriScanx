@@ -659,8 +659,19 @@ window.VeriScanxVerify = (function(){
       <p style="font-size:13px; line-height:1.6; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); color:${report.findings.some(f=>f.points>=24)?'var(--critical)':'var(--ink)'};"><b>${escapeHtml(report.recommendation)}</b></p>
     </div>`;
 
+    const regWarningHTML = (regStatus === 'unregistered' || regStatus === 'mismatch') ? `<div class="rcard" style="background:var(--critical-soft); border-color:var(--critical);">
+          <div style="display:flex; align-items:flex-start; gap:10px;">
+            <span style="color:var(--critical); flex-shrink:0; margin-top:2px;">${ICON.warn}</span>
+            <div>
+              <div style="font-weight:700; color:var(--critical); font-size:14px;">${regStatus === 'unregistered' ? 'Warning: document not found in the national registry' : 'Warning: registry identity mismatch'}</div>
+              <div style="font-size:12.5px; color:var(--critical); margin-top:4px; line-height:1.5;">${regStatus === 'unregistered' ? 'This document number does not exist anywhere in the national registry database and could not be verified against any known record. Treat this scan with caution and confirm the traveler\'s identity through a secondary check.' : `This document number is on file, but registered to a different identity ("${escapeHtml(regEntry ? regEntry.name : 'unknown')}") than the one printed on the scanned document. Do not clear this traveler without manual verification.`}</div>
+            </div>
+          </div>
+        </div>` : '';
+
     el.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:14px;">
+        ${regWarningHTML}
         <div class="rcard">
           <h4>Risk assessment</h4>
           <div class="risk-gauge">
