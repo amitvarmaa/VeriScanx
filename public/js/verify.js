@@ -216,6 +216,8 @@ window.VeriScanxVerify = (function(){
   let faceModelsLoaded = false, faceModelsLoading = null;
   let livenessTimer = null, livenessResult = null;
   let faceStream = null, docFaceDescriptor = null;
+  let liveCaptureDataUrl = null;  // live camera snapshot from the last face-verification comparison, for the investigation report
+  let faceVerdict = null;         // { isMatch, distance, livenessPassed, comparedAt } from the last face-verification comparison
 
   function stopFaceStream(){
     if(faceStream){ faceStream.getTracks().forEach(t=>t.stop()); faceStream = null; }
@@ -437,9 +439,11 @@ window.VeriScanxVerify = (function(){
     const distance = faceapi.euclideanDistance(docFaceDescriptor, liveDetection.descriptor);
     const threshold = 0.6;
     const isMatch = distance<=threshold;
+    liveCaptureDataUrl = canvas.toDataURL('image/jpeg', 0.85);
     drawFaceCrop(canvas, liveDetection.detection.box, document.getElementById('faceCamBox'), 'Live capture');
     if(statusEl) statusEl.textContent = 'Comparison complete. This check is separate from the risk score above.';
     const livenessPassed = !!(livenessResult && livenessResult.passed);
+    faceVerdict = { isMatch, distance, livenessPassed, comparedAt: new Date() };
     body.insertAdjacentHTML('beforeend', `
       <div class="face-verdict ${isMatch?'pass':'fail'}">
         <span class="check-icon">${isMatch?ICON.check:ICON.x}</span>
@@ -502,8 +506,15 @@ window.VeriScanxVerify = (function(){
      DOWNLOADABLE INVESTIGATION REPORT — browser print-to-PDF, no PDF
      library. Renders the same computed results into #printReport, then
      calls window.print(); the browser's own "Save as PDF" destination
-     is the actual PDF export.
+     is the actual PDF export. Styled as a formal, numbered, navy/amber
+     "official document" (see #printReport rules in panel.css) — visually
+     distinct from the app's own teal UI theme on purpose, since this is
+     the artifact an officer would actually file or hand off.
      ============================================================ */
+  const PR_SEAL_SVG = `<svg viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M13 2 L23 6 V13 C23 19 18.5 23 13 24.5 C7.5 23 3 19 3 13 V6 Z" stroke="#0B1524" stroke-width="1.4" fill="#F5A62333"/>
+    <path d="M8.5 13.2 L11.5 16.2 L18 9.5" stroke="#0B1524" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </svg>`;
   function buildPrintReportHTML(r){
     const rec = r.record;
     const report = r.investigationReport || buildInvestigationReport(r);
@@ -533,32 +544,76 @@ window.VeriScanxVerify = (function(){
       : null;
     const photoLabel = (r.registryEntry && r.registryEntry.photo) ? 'National registry photo' : 'From uploaded document image';
     const photoHTML = photoSrc
-      ? `<div class="pr-photo-wrap"><img class="pr-photo" src="${photoSrc}" alt="Traveler photo"/><div class="pr-meta" style="margin-top:4px;">${escapeHtml(photoLabel)}</div></div>`
+      ? `<div class="pr-photo-wrap"><img class="pr-photo" src="${photoSrc}" alt="Traveler photo"/><div class="pr-face-caption" style="margin-top:4px;">${escapeHtml(photoLabel)}</div></div>`
       : `<div class="pr-photo-wrap"><div class="pr-photo pr-photo-empty">No photo available</div></div>`;
+
+    // Live face-verification capture (module-level liveCaptureDataUrl/faceVerdict,
+    // set by captureAndCompare() and reset for every new scan) — included in the
+    // report only when the officer actually ran the face-verification step.
+    const hasFaceCheck = !!(liveCaptureDataUrl && faceVerdict);
+    const faceSectionHTML = hasFaceCheck ? `
+      <h2>5. Face Verification — Live Capture</h2>
+      <div class="pr-face-grid">
+        ${photoSrc
+          ? `<div class="pr-face-photo-wrap"><img class="pr-face-photo" src="${photoSrc}" alt="Reference photo"/><div class="pr-face-caption">Reference — ${escapeHtml(photoLabel)}</div></div>`
+          : `<div class="pr-face-photo-wrap"><div class="pr-face-photo pr-photo-empty">No reference</div><div class="pr-face-caption">Reference</div></div>`}
+        <div class="pr-face-photo-wrap"><img class="pr-face-photo" src="${liveCaptureDataUrl}" alt="Live captured photo"/><div class="pr-face-caption">Live capture — camera</div></div>
+        <div class="pr-face-verdict-panel">
+          <div class="pr-verdict-line ${faceVerdict.isMatch?'pass':'fail'}">${faceVerdict.isMatch?'Faces match':'Faces do not match'} — distance ${faceVerdict.distance.toFixed(3)} (match threshold ≤ 0.600)</div>
+          <div class="pr-verdict-line ${faceVerdict.livenessPassed?'pass':'fail'}">${faceVerdict.livenessPassed?'Liveness confirmed — natural blink detected':'Liveness not confirmed — capture may be a photo/video replay'}</div>
+          <div class="pr-meta" style="margin:6px 0 0;">Captured ${faceVerdict.comparedAt.toLocaleString()} · a separate, additional check — not folded into the risk score above.</div>
+        </div>
+      </div>` : `
+      <h2>5. Face Verification</h2>
+      <p style="font-size:12px;color:#555;">Face verification was not run for this scan.</p>`;
+
     return `
-      <h1>VeriScanx — Investigation Report</h1>
-      <div class="pr-meta">Generated ${report.generatedAt.toLocaleString()} · Source: ${escapeHtml(r.sourceLabel||'—')} · Scan #${rec.id}</div>
-      <h2>Risk assessment</h2>
-      <div class="pr-summary-row">
-        ${photoHTML}
-        <table style="flex:1;">
-          <tr><td>Risk score</td><td><b>${rec.riskScore} / 100</b> — <span class="pr-band" style="background:${bandColorHex}22; color:${bandColorHex};">${rec.riskBand} risk</span></td></tr>
-          <tr><td>Traveler</td><td>${escapeHtml(rec.travelerName)}</td></tr>
-          <tr><td>Date of birth</td><td>${escapeHtml(rec.dob)}</td></tr>
-          <tr><td>Document type</td><td>${escapeHtml(rec.docType||'Passport')}</td></tr>
-          <tr><td>Document number</td><td>${escapeHtml(rec.docNumber||'—')}</td></tr>
-          <tr><td>Nationality</td><td>${escapeHtml(rec.nationality||'—')}</td></tr>
+      <div class="pr-page">
+        <div class="pr-header">
+          <div class="pr-seal">${PR_SEAL_SVG}</div>
+          <div class="pr-header-text">
+            <div class="pr-org">VeriScanx</div>
+            <div class="pr-doctitle">Official Investigation Report</div>
+            <div class="pr-sub">Automated Document Verification &amp; Fraud Detection System</div>
+          </div>
+          <div class="pr-classify">Authorized&nbsp;Personnel&nbsp;Only</div>
+        </div>
+        <table class="pr-idbar">
+          <tr><td>Report ID</td><td>SCAN-${rec.id}</td><td>Generated</td><td>${report.generatedAt.toLocaleString()}</td></tr>
+          <tr><td>Source</td><td>${escapeHtml(r.sourceLabel||'—')}</td><td>Risk band</td><td><span class="pr-band" style="border-color:${bandColorHex}; color:${bandColorHex}; background:${bandColorHex}15;">${rec.riskBand}</span></td></tr>
         </table>
+
+        <h2>1. Risk Assessment Summary</h2>
+        <div class="pr-summary-row">
+          ${photoHTML}
+          <table class="pr-table" style="flex:1;">
+            <tr><td>Risk score</td><td><b>${rec.riskScore} / 100</b></td></tr>
+            <tr><td>Traveler</td><td>${escapeHtml(rec.travelerName)}</td></tr>
+            <tr><td>Date of birth</td><td>${escapeHtml(rec.dob)}</td></tr>
+            <tr><td>Document type</td><td>${escapeHtml(rec.docType||'Passport')}</td></tr>
+            <tr><td>Document number</td><td>${escapeHtml(rec.docNumber||'—')}</td></tr>
+            <tr><td>Nationality</td><td>${escapeHtml(rec.nationality||'—')}</td></tr>
+          </table>
+        </div>
+
+        <h2>2. AI Investigation Copilot Summary</h2>
+        <p style="font-size:12.5px;">${escapeHtml(report.opening)}</p>
+        <p style="font-size:12px;color:#333;">${escapeHtml(report.body)}</p>
+        <p style="font-size:12.5px;"><b>${escapeHtml(report.recommendation)}</b></p>
+
+        <h2>3. Top Risk Contributors</h2>
+        ${findingsHTML}
+
+        <h2>4. Verification Checks</h2>
+        <table class="pr-table">${checksTable}</table>
+
+        ${faceSectionHTML}
+
+        <div class="pr-footer">
+          <div>VeriScanx — SIH 2026 · generated client-side in the officer's browser · not for public distribution</div>
+          <div>Officer scan #${rec.id} · saved ${escapeHtml(rec.createdAt||'')}</div>
+        </div>
       </div>
-      <h2>AI Investigation Copilot summary</h2>
-      <p style="font-size:12.5px;">${escapeHtml(report.opening)}</p>
-      <p style="font-size:12px;color:#333;">${escapeHtml(report.body)}</p>
-      <p style="font-size:12.5px;"><b>${escapeHtml(report.recommendation)}</b></p>
-      <h2>Top risk contributors</h2>
-      ${findingsHTML}
-      <h2>Verification checks</h2>
-      <table>${checksTable}</table>
-      <div class="pr-meta" style="margin-top:18px;">VeriScanx — SIH 2026. Officer: scan #${rec.id}, saved ${escapeHtml(rec.createdAt||'')}. Generated client-side in the officer's browser.</div>
     `;
   }
 
@@ -1183,6 +1238,7 @@ window.VeriScanxVerify = (function(){
       // photo wins (most authoritative); otherwise a real uploaded document
       // image; the two specimens are illustrations with no real face; else
       // no reference is available at all.
+      liveCaptureDataUrl = null; faceVerdict = null; // reset any prior scan's face-verification capture
       if(registryEntry && registryEntry.photo){
         faceRefSrc = registryEntry.photo;
         faceRefLabel = `Registry photo — ${registryEntry.name}`;
