@@ -351,10 +351,10 @@ try {
 // Same try/ignore-duplicate-column pattern as above -- one ALTER per
 // column since SQLite has no "ADD COLUMN IF NOT EXISTS".
 const REGISTRY_EXTRA_COLUMNS = [
-  "nationality", "doc_type", "doc_issue_date", "doc_expiry_date", "issuing_authority",
+  "nationality", "doc_type", "doc_issue_date", "doc_expiry_date", "issuing_authority", "doc_status",
   "criminal_record_status", "criminal_record_details", "previous_case_reference", "offence_category", "case_status",
   "investigation_status", "previous_security_alerts", "watchlist_status", "blacklist_status", "blacklist_reason",
-  "previous_identities", "aliases", "duplicate_identity_status", "cross_document_match_history", "previous_verification_history", "previous_risk_flags",
+  "previous_identities", "aliases", "duplicate_identity_status", "cross_document_match_history", "previous_verification_history", "previous_verification_status", "previous_risk_flags",
   "previous_travel_record", "entry_exit_history", "visa_history", "previous_border_alerts", "previous_rejection_flags",
   "face_match_result", "face_match_confidence", "doc_authenticity_result", "tampering_detection_result", "ocr_result",
   "mrz_validation_result", "forensic_analysis_result", "database_crosscheck_result", "overall_risk_score", "risk_level", "final_verification_status",
@@ -548,10 +548,10 @@ function normalizeDocNum(s) {
 }
 
 const REGISTRY_EXTRA_FIELD_MAP = {
-  nationality: "nationality", docType: "doc_type", docIssueDate: "doc_issue_date", docExpiryDate: "doc_expiry_date", issuingAuthority: "issuing_authority",
+  nationality: "nationality", docType: "doc_type", docIssueDate: "doc_issue_date", docExpiryDate: "doc_expiry_date", issuingAuthority: "issuing_authority", docStatus: "doc_status",
   criminalRecordStatus: "criminal_record_status", criminalRecordDetails: "criminal_record_details", previousCaseReference: "previous_case_reference", offenceCategory: "offence_category", caseStatus: "case_status",
   investigationStatus: "investigation_status", previousSecurityAlerts: "previous_security_alerts", watchlistStatus: "watchlist_status", blacklistStatus: "blacklist_status", blacklistReason: "blacklist_reason",
-  previousIdentities: "previous_identities", aliases: "aliases", duplicateIdentityStatus: "duplicate_identity_status", crossDocumentMatchHistory: "cross_document_match_history", previousVerificationHistory: "previous_verification_history", previousRiskFlags: "previous_risk_flags",
+  previousIdentities: "previous_identities", aliases: "aliases", duplicateIdentityStatus: "duplicate_identity_status", crossDocumentMatchHistory: "cross_document_match_history", previousVerificationHistory: "previous_verification_history", previousVerificationStatus: "previous_verification_status", previousRiskFlags: "previous_risk_flags",
   previousTravelRecord: "previous_travel_record", entryExitHistory: "entry_exit_history", visaHistory: "visa_history", previousBorderAlerts: "previous_border_alerts", previousRejectionFlags: "previous_rejection_flags",
   faceMatchResult: "face_match_result", faceMatchConfidence: "face_match_confidence", docAuthenticityResult: "doc_authenticity_result", tamperingDetectionResult: "tampering_detection_result", ocrResult: "ocr_result",
   mrzValidationResult: "mrz_validation_result", forensicAnalysisResult: "forensic_analysis_result", databaseCrosscheckResult: "database_crosscheck_result", overallRiskScore: "overall_risk_score", riskLevel: "risk_level", finalVerificationStatus: "final_verification_status",
