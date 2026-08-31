@@ -82,9 +82,10 @@
             <div class="upload-zone" id="uploadZone" tabindex="0" role="button" aria-label="Upload a document image">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
               <h3>Drop a document image, or click to upload</h3>
-              <p>JPG or PNG · image forensics run in your browser</p>
+              <p>JPG, PNG, WEBP, or PDF · image forensics run in your browser</p>
             </div>
-            <input type="file" id="fileInput" accept="image/*" style="position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;" />
+            <div class="login-error" id="uploadValidationError"></div>
+            <input type="file" id="fileInput" accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf" style="position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;" />
             <div class="sample-row">
               <button class="btn btn-ghost btn-sm" id="sampleClean">▸ Try sample: clean specimen</button>
               <button class="btn btn-ghost btn-sm" id="sampleFlagged">▸ Try sample: flagged specimen</button>
@@ -216,6 +217,7 @@
 <!-- QR / chip code decoding used by the Verify & scan flow -->
 <script src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <!-- Face verification (document photo vs. live camera capture), used by the Verify & scan flow -->
 <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
 <script src="/js/verify.js"></script>

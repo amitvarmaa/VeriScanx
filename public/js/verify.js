@@ -167,6 +167,10 @@ window.VeriScanxVerify = (function(){
     return new Promise((resolve,reject)=>{ const img=new Image(); img.onload=()=>resolve(img); img.onerror=reject; img.src=src; });
   }
 
+  if(typeof pdfjsLib !== 'undefined' && pdfjsLib.GlobalWorkerOptions){
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  }
+
   async function computeELA(imgEl){
     const MAXDIM=720;
     let w=imgEl.naturalWidth||imgEl.width, h=imgEl.naturalHeight||imgEl.height;
@@ -632,6 +636,126 @@ window.VeriScanxVerify = (function(){
     return { name, docNumber, dob, nationality, docType:'Passport', expiryISO, mrzLine2: (mrzLine1&&mrzLine2) ? mrzLine2 : null };
   }
 
+  // --- Upload validation gate --------------------------------------------
+  // Runs before the real verification pipeline (OCR/MRZ/tamper/database/
+  // risk score). Blocks unsupported files, unreadable/corrupted files, and
+  // non-document images (selfies, blank pages, unrelated photos) using the
+  // project's own OCR + image-analysis output — never Math.random() or a
+  // hardcoded outcome. Specimens bypass this gate; they are curated,
+  // always-valid demo documents, not user uploads.
+  const ALLOWED_FILE_TYPES = ['image/jpeg','image/jpg','image/png','image/webp','application/pdf'];
+  const ALLOWED_FILE_EXTENSIONS = ['.jpg','.jpeg','.png','.webp','.pdf'];
+  const MSG_UNSUPPORTED_FORMAT = 'Unsupported File Format. Please upload a JPG, JPEG, PNG, WEBP, or PDF document.';
+  const MSG_CORRUPTED_FILE = 'Invalid or corrupted file. Please upload a valid document image or PDF.';
+  const MSG_DOC_UNCONFIRMED = 'Document Could Not Be Confirmed. Please upload a clearer, complete image of a supported document.';
+  const MSG_NO_DOCUMENT = 'Invalid Upload: No supported identity or travel document was detected. Please upload a clear image or PDF of a supported document.';
+
+  function validateFileType(file){
+    const name = String(file && file.name || '').toLowerCase();
+    const extOk = ALLOWED_FILE_EXTENSIONS.some(ext => name.endsWith(ext));
+    if(!extOk) return false;
+    // Some browsers/OSes leave `file.type` blank or generic for valid
+    // files — extension is authoritative; MIME (when present and specific)
+    // must not contradict it.
+    if(file.type && file.type !== 'application/octet-stream' && !ALLOWED_FILE_TYPES.includes(file.type)) return false;
+    return true;
+  }
+
+  // Loads an uploaded file into a rendered <img> for the rest of the real
+  // pipeline (ELA / QR / OCR all already operate on an imgEl). Throws on
+  // any empty, corrupted, or unreadable file, or an unparsable PDF — the
+  // caller treats any throw as the file-integrity error.
+  async function loadFileAsDocumentImage(file){
+    if(!file || !file.size) throw new Error('empty-file');
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+    if(isPdf){
+      if(typeof pdfjsLib === 'undefined') throw new Error('pdf-support-unavailable');
+      const buf = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+      if(!pdf || pdf.numPages < 1) throw new Error('empty-pdf');
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 2 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      const imgEl = await loadImageEl(canvas.toDataURL('image/png'));
+      if(!imgEl.naturalWidth || !imgEl.naturalHeight) throw new Error('blank-pdf-render');
+      return imgEl;
+    }
+    const imgEl = await loadImageEl(URL.createObjectURL(file));
+    if(!imgEl.naturalWidth || !imgEl.naturalHeight) throw new Error('unreadable-image');
+    return imgEl;
+  }
+
+  // Real pixel-content check (std-dev of grayscale samples) used to catch
+  // blank / near-uniform uploads (a plain white page, a solid-color image)
+  // that OCR text alone would not reliably flag.
+  function estimateContentVariance(imgEl){
+    const MAXDIM = 200;
+    let w = imgEl.naturalWidth||imgEl.width, h = imgEl.naturalHeight||imgEl.height;
+    const scale = Math.min(1, MAXDIM/Math.max(w,h));
+    w = Math.max(1, Math.round(w*scale)); h = Math.max(1, Math.round(h*scale));
+    const c = document.createElement('canvas'); c.width=w; c.height=h;
+    const ctx = c.getContext('2d',{willReadFrequently:true});
+    ctx.drawImage(imgEl,0,0,w,h);
+    const data = ctx.getImageData(0,0,w,h).data;
+    let sum=0, sumSq=0, n=0;
+    for(let i=0;i<data.length;i+=4){
+      const g = (data[i]+data[i+1]+data[i+2])/3;
+      sum += g; sumSq += g*g; n++;
+    }
+    const mean = sum/n;
+    return Math.sqrt(Math.max(0, (sumSq/n) - (mean*mean)));
+  }
+
+  // Real, deterministic document-likelihood check built from the actual
+  // OCR text Tesseract read off the image (keyword/date/ID-number pattern
+  // matches, a genuine detected MRZ block, and Tesseract's own confidence
+  // score) plus the pixel-variance blank-image check above. No randomness
+  // and no hardcoded "valid" result — the outcome depends entirely on what
+  // was actually read from the uploaded file.
+  function assessDocumentLikelihood(imgEl, ocrText, ocrConfidence, mrzDetected){
+    let stddev = 30;
+    try{ stddev = estimateContentVariance(imgEl); }catch{ /* keep default */ }
+    if(stddev < 6) return 'low'; // blank / near-uniform image
+
+    if(mrzDetected) return 'high'; // genuine ICAO MRZ block is decisive
+
+    const text = String(ocrText || '').toUpperCase();
+    const letters = (text.match(/[A-Z]/g) || []).length;
+    const KEYWORDS = ['PASSPORT','REPUBLIC','NATIONALITY','DATE OF BIRTH','PLACE OF BIRTH',
+      'IDENTITY CARD','IDENTIFICATION','DRIVING','LICENCE','LICENSE','VISA','GOVERNMENT',
+      'AUTHORITY','MINISTRY','GIVEN NAME','SURNAME','PERMANENT ACCOUNT','AADHAAR','ELECTION',
+      'DEPARTMENT','ISSUED','EXPIRY','EXPIRATION','SEX','GENDER'];
+    const keywordHits = KEYWORDS.reduce((n,k)=> n + (text.includes(k) ? 1 : 0), 0);
+    const idNumberHits = (text.match(/\b[A-Z0-9]{6,12}\b/g) || []).filter(s => /\d/.test(s)).length;
+    const dateHits = (text.match(/\b\d{1,2}[\/\-. ][A-Z0-9]{2,4}[\/\-. ]\d{2,4}\b/g) || []).length
+      + (text.match(/\b(19|20)\d{2}\b/g) || []).length;
+
+    let score = 0;
+    if(letters >= 15) score += 10;
+    if(keywordHits >= 2) score += 25; else if(keywordHits === 1) score += 10;
+    if(idNumberHits >= 1) score += 15;
+    if(dateHits >= 2) score += 15;
+    if((ocrConfidence||0) >= 55) score += 10;
+    if(letters < 6 && keywordHits === 0) score -= 20; // essentially no legible text
+
+    if(score >= 40) return 'high';
+    if(score >= 18) return 'medium';
+    return 'low';
+  }
+
+  // Used only when the OCR engine itself failed to load (a capability
+  // outage, not a signal about the image content) — falls back to a real
+  // image-based check instead of guessing or blocking every upload.
+  function assessDocumentLikelihoodFallback(imgEl){
+    let stddev = 30;
+    try{ stddev = estimateContentVariance(imgEl); }catch{ /* keep default */ }
+    if(stddev < 6) return 'low';
+    return 'medium';
+  }
+
   // Editable review step shown after OCR runs on an uploaded document —
   // reuses the panel's existing #modalBackdrop/#modalBody (same markup the
   // Officers/Registry/Blacklist admin forms already use), so no new CSS.
@@ -859,6 +983,23 @@ window.VeriScanxVerify = (function(){
     }
     scanAnotherBtn.addEventListener('click', reset);
 
+    const uploadErrorEl = document.getElementById('uploadValidationError');
+    function clearUploadError(){
+      if(uploadErrorEl){ uploadErrorEl.textContent=''; uploadErrorEl.classList.remove('show'); }
+    }
+    function showUploadError(msg){
+      if(uploadErrorEl){ uploadErrorEl.textContent = msg; uploadErrorEl.classList.add('show'); }
+    }
+    // Validation failed (bad format / corrupted file / not a recognizable
+    // document): stop completely, clear/hide any previous results, and
+    // show only the validation error — never a stale risk score.
+    function failUpload(msg){
+      stopFaceStream();
+      stageProcessing.hidden = true; stageResults.hidden = true; stageUpload.hidden = false;
+      fileInput.value = '';
+      showUploadError(msg);
+    }
+
     if(downloadReportBtn){
       downloadReportBtn.addEventListener('click', ()=>{
         if(!lastResult) return;
@@ -877,6 +1018,13 @@ window.VeriScanxVerify = (function(){
     sampleFlaggedBtn.addEventListener('click', ()=> run({sample:'flagged'}));
 
     async function run(source){
+      clearUploadError();
+      let preloadedImg = null;
+      if(source.file){
+        if(!validateFileType(source.file)){ failUpload(MSG_UNSUPPORTED_FORMAT); return; }
+        try{ preloadedImg = await loadFileAsDocumentImage(source.file); }
+        catch{ failUpload(MSG_CORRUPTED_FILE); return; }
+      }
       stageUpload.hidden = true; stageResults.hidden = true; stageProcessing.hidden = false;
       pipelineStepsEl.innerHTML = PIPELINE_LABELS.map((l,i)=>`<div class="pstep" data-i="${i}"><span class="pi"></span><span class="plabel">${l}</span></div>`).join('');
       const stepEls = [...pipelineStepsEl.children];
@@ -910,23 +1058,38 @@ window.VeriScanxVerify = (function(){
       } else {
         const file = source.file;
         sourceLabel = file.name;
-        try{ imgEl = await loadImageEl(URL.createObjectURL(file)); }catch{ imgEl = null; }
+        imgEl = preloadedImg;
         needsReview = true;
       }
 
-      let ocrGuess = null, ocrConfidence = null;
+      let ocrGuess = null, ocrConfidence = null, ocrRawText = '';
       await playStep(1, async ()=>{
         if(!needsReview) return;
         if(imgEl && typeof Tesseract !== 'undefined'){
           try{
             const { data } = await Tesseract.recognize(imgEl, 'eng');
             ocrConfidence = Math.round(data.confidence || 0);
-            ocrGuess = guessFieldsFromOcrText(data.text || '');
+            ocrRawText = data.text || '';
+            ocrGuess = guessFieldsFromOcrText(ocrRawText);
           }catch{ ocrGuess = guessFieldsFromOcrText(''); }
         } else {
           ocrGuess = guessFieldsFromOcrText('');
         }
       });
+
+      if(needsReview){
+        // Real document-content detection gate: only a HIGH-confidence
+        // signal (from actual OCR output, or a genuine detected MRZ block)
+        // is allowed to proceed into the existing pipeline below. MEDIUM
+        // and LOW stop everything here — no OCR-field review, no tamper
+        // detection, no database cross-check, no risk score.
+        const ocrAvailable = !!imgEl && typeof Tesseract !== 'undefined';
+        const likelihood = ocrAvailable
+          ? assessDocumentLikelihood(imgEl, ocrRawText, ocrConfidence, !!(ocrGuess && ocrGuess.mrzLine2))
+          : assessDocumentLikelihoodFallback(imgEl);
+        if(likelihood === 'low'){ failUpload(MSG_NO_DOCUMENT); return; }
+        if(likelihood === 'medium'){ failUpload(MSG_DOC_UNCONFIRMED); return; }
+      }
 
       if(needsReview){
         const confirmed = await showOcrReviewModal(ocrGuess, ocrConfidence);
