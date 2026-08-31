@@ -1224,6 +1224,48 @@ module.exports = function registerScanRoutes(router) {
 });
 
 // ---- server/routes/stats.js ----
+__define("routes/public-check", function (module, exports, require) {
+const db = require("db");
+const { sendJSON } = require("http-helpers");
+const { checkRegistry } = require("registry-check");
+
+module.exports = function registerPublicCheckRoutes(router) {
+  // No auth on these three — deliberately public, for the marketing site's
+  // Live Demo tab to query the real live tables instead of a local fake
+  // dataset. Exact-match lookups only (never a listing/dump route), and the
+  // registry response is trimmed to display-only fields — no criminal
+  // record / security alert / investigation-status fields from the
+  // extended registry schema are ever returned here.
+  router.get("/api/public/blacklist-check", async (req, res) => {
+    const docNumber = String(req.query.get("docNumber") || "").trim();
+    if (!docNumber) { sendJSON(res, 200, { hit: false, reason: null }); return; }
+    const row = db.prepare("SELECT reason FROM blacklist WHERE doc_number = ?").get(docNumber);
+    sendJSON(res, 200, { hit: !!row, reason: row ? row.reason || null : null });
+  });
+
+  router.get("/api/public/registry-check", async (req, res) => {
+    const docNumber = String(req.query.get("docNumber") || "").trim();
+    const name = String(req.query.get("name") || "").trim();
+    const dob = String(req.query.get("dob") || "").trim();
+    const result = docNumber ? checkRegistry(docNumber, name || null, dob || null) : null;
+    if (!result) { sendJSON(res, 200, { status: null, entry: null }); return; }
+    const e = result.entry;
+    sendJSON(res, 200, {
+      status: result.status,
+      entry: e ? { name: e.name, dob: e.dob, gender: e.gender, city: e.city, state: e.state, docNumber: e.docNumber, photo: e.photo || null } : null,
+    });
+  });
+
+  router.get("/api/public/duplicate-check", async (req, res) => {
+    const name = String(req.query.get("name") || "").trim();
+    const dob = String(req.query.get("dob") || "").trim();
+    if (!name || !dob) { sendJSON(res, 200, { hit: false }); return; }
+    const row = db.prepare("SELECT 1 FROM scans WHERE lower(traveler_name) = lower(?) AND dob = ? LIMIT 1").get(name, dob);
+    sendJSON(res, 200, { hit: !!row });
+  });
+};
+});
+
 __define("routes/stats", function (module, exports, require) {
 const db = require("db");
 const { getUser } = require("context");
@@ -1319,6 +1361,7 @@ __require("routes/officers")(router);
 __require("routes/blacklist")(router);
 __require("routes/registry")(router);
 __require("routes/stats")(router);
+__require("routes/public-check")(router);
 
 const publicDir = path.join(__dirname, "public");
 const serveFile = serveStatic(publicDir);

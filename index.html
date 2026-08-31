@@ -1082,7 +1082,7 @@ html[data-slide-dir] #app{ view-transition-name: view-content; }
       <div class="faq-list">
         <div class="faq-item" data-open="true">
           <button class="faq-q">Does VeriScanx connect to real government databases?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
-          <div class="faq-a"><p>Not in this demo — the public site and its "Live Demo" tab query a small illustrative dataset so anyone can try it without touching a real system. The officer panel is architected against the same schema a real registry/blacklist connector would use, so wiring in an actual government feed is a connector swap, not a redesign.</p></div>
+          <div class="faq-a"><p>Not a real government feed — but the public site's "Live Demo" tab does query the same live application database the officer panel itself uses, in real time, rather than a separate offline dataset. The records in it are still fictional demo data for the hackathon; wiring in an actual government/international feed is a connector swap, not a redesign, since both sides already share the same schema.</p></div>
         </div>
         <div class="faq-item" data-open="false">
           <button class="faq-q">What happens if the connection to a database drops mid-scan?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
@@ -1189,10 +1189,10 @@ html[data-slide-dir] #app{ view-transition-name: view-content; }
     <div class="demo-head">
       <div class="eyebrow">Live demo</div>
       <h2 style="font-size:clamp(22px,2.6vw,28px);">Run a document through the pipeline.</h2>
-      <p style="color:var(--ink-2); margin-top:10px; font-size:14.5px; line-height:1.6;">Upload any ID-style image, or try a fictional specimen document below. The image-forensics panel runs a real error-level-analysis pass on your image in the browser; OCR extraction, MRZ parsing and database lookups are simulated against a small demo dataset — clearly marked below, no real government systems are queried.</p>
+      <p style="color:var(--ink-2); margin-top:10px; font-size:14.5px; line-height:1.6;">Upload any ID-style image, or try a fictional specimen document below. The image-forensics panel runs a real error-level-analysis pass on your image in the browser; OCR/MRZ field extraction from an arbitrary upload is still simulated, but blacklist, national-registry, and duplicate-identity checks now query the same live application database the officer panel uses, in real time — no real government systems are queried.</p>
       <div class="badge-row" style="margin-top:18px;">
         <span class="stack-badge">Client-side ELA — nothing uploaded</span>
-        <span class="stack-badge">Demo dataset only, not live records</span>
+        <span class="stack-badge">Live blacklist &amp; registry checks</span>
         <span class="stack-badge">Typical run &lt; 8s</span>
       </div>
     </div>
@@ -1270,7 +1270,7 @@ html[data-slide-dir] #app{ view-transition-name: view-content; }
               <label>Expiry date
                 <input type="date" id="mExpiry" />
               </label>
-              <p class="manual-hint">No submit button — results update live as you type. Try document number <b class="mono">118334029917</b> (on the demo blacklist), name <b>Farid Osei</b> with DOB <b>1988-03-11</b> (a duplicate already in the demo scan history), or document number <b class="mono">583104927615</b> with name <b>Siddharth More</b> and DOB <b>1992-05-03</b> (a real record in the national registry).</p>
+              <p class="manual-hint">No submit button — results update live as you type, checked against the same live blacklist, registry, and scan-history database the officer panel uses. Try any document number, or check the officer panel's Registry / Blacklist pages for what's currently on file.</p>
             </div>
             <div class="manual-results" id="manualResults">
               <div class="manual-empty">Fill in a name, document number, or expiry date — the risk assessment updates live as you type, no submit button needed.</div>
@@ -1482,15 +1482,44 @@ function normalizeDocNum(s){ return String(s||'').replace(/[^0-9]/g,''); }
 // Cross-checks a document number (+ optionally name/DOB) against the national
 // registry. Returns null when there's nothing to check yet, otherwise
 // {status: 'verified'|'mismatch'|'unregistered', entry}.
-function checkRegistry(docNumber, name, dobISO){
+async function checkRegistryLive(docNumber, name, dobISO){
   const norm = normalizeDocNum(docNumber);
   if(!norm) return null;
-  const entry = REGISTRY_BY_DOC[norm];
-  if(!entry) return {status:'unregistered', entry:null};
-  const nameOk = !name || name.trim().toLowerCase()===entry.name.toLowerCase();
-  const dobOk = !dobISO || dobISO===entry.dob;
-  if(!nameOk || !dobOk) return {status:'mismatch', entry};
-  return {status:'verified', entry};
+  try{
+    const params = new URLSearchParams({ docNumber: norm });
+    if(name) params.set('name', name);
+    if(dobISO) params.set('dob', dobISO);
+    const res = await fetch(`/api/public/registry-check?${params}`);
+    if(!res.ok) throw new Error('bad status');
+    const data = await res.json();
+    return data && data.status ? data : { status:'unregistered', entry:null };
+  }catch{
+    return { status:'unavailable', entry:null };
+  }
+}
+
+async function checkBlacklistLive(docNumber){
+  const doc = String(docNumber||'').trim();
+  if(!doc) return { hit:false, reason:null };
+  try{
+    const res = await fetch(`/api/public/blacklist-check?docNumber=${encodeURIComponent(doc)}`);
+    if(!res.ok) throw new Error('bad status');
+    return await res.json();
+  }catch{
+    return { hit:false, reason:null, unavailable:true };
+  }
+}
+
+async function checkDuplicateLive(name, dobISO){
+  if(!name || !dobISO) return { hit:false };
+  try{
+    const params = new URLSearchParams({ name, dob: dobISO });
+    const res = await fetch(`/api/public/duplicate-check?${params}`);
+    if(!res.ok) throw new Error('bad status');
+    return await res.json();
+  }catch{
+    return { hit:false, unavailable:true };
+  }
 }
 
 /* ============================================================
@@ -2068,9 +2097,9 @@ const PIPELINE_LABELS = [
   'Running OCR & MRZ parsing (checksum verified live)',
   'Analyzing image for tampering (live ELA)',
   'Decoding embedded QR / chip code (live)',
-  'Cross-checking blacklist & watchlists (demo dataset)',
-  'Searching for duplicate identities (demo dataset)',
-  'Cross-checking national registry (real dataset)',
+  'Cross-checking blacklist & watchlists (live database)',
+  'Searching for duplicate identities (live database)',
+  'Cross-checking national registry (live database)',
   'Computing weighted risk score'
 ];
 
@@ -2140,7 +2169,9 @@ manualInputs.forEach(el=>{
   el.addEventListener('input', ()=>{ clearTimeout(manualTimer); manualTimer = setTimeout(renderManual, 150); });
 });
 
-function renderManual(){
+let manualCheckGen = 0;
+async function renderManual(){
+  const gen = ++manualCheckGen;
   const name = mName.value.trim();
   const dobISO = mDob.value;
   const docType = mDocType.value;
@@ -2155,13 +2186,19 @@ function renderManual(){
     return;
   }
 
-  const blacklistHit = !!docNumber && BLACKLIST.includes(docNumber);
-  const priorMatch = !!name && !!dobISO && DUPLICATE_STORE.some(d=> d.name.toLowerCase()===name.toLowerCase() && d.dob===dobISO);
-  const sessionMatch = !!name && !!dobISO && window.__sessionScans && window.__sessionScans.some(s=> s.name.toLowerCase()===name.toLowerCase() && s.dobISO===dobISO);
-  const duplicateHit = priorMatch || !!sessionMatch;
   const mrzValid = docNumber ? /^[0-9]{12}$/.test(docNumber) : true;
   const expired = expiryVal ? (new Date(expiryVal) < now0) : false;
-  const registry = docNumber ? checkRegistry(docNumber, name, dobISO) : null;
+
+  const [blacklistRes, registry, duplicateRes] = await Promise.all([
+    checkBlacklistLive(docNumber),
+    docNumber ? checkRegistryLive(docNumber, name, dobISO) : Promise.resolve(null),
+    checkDuplicateLive(name, dobISO),
+  ]);
+  if(gen !== manualCheckGen) return; // superseded by a newer keystroke's check
+
+  const blacklistHit = !!blacklistRes.hit;
+  const sessionMatch = !!name && !!dobISO && window.__sessionScans && window.__sessionScans.some(s=> s.name.toLowerCase()===name.toLowerCase() && s.dobISO===dobISO);
+  const duplicateHit = !!duplicateRes.hit || !!sessionMatch;
   const registryStatus = registry ? registry.status : null;
   const docTypeCheck = checkDocTypeRules(docType, { dobISO: dobISO || null, expiry: expiryVal || null });
   const anomalyCheck = detectAnomalies({ docNumber, name, dobISO, registryStatus });
@@ -2178,15 +2215,18 @@ function renderManual(){
   const risk = computeRisk({ tamperScore:0, blacklistHit, duplicateHit, mrzValid, expired, registryStatus, docTypeIssue: docTypeCheck.ok ? null : docTypeCheck.label, anomalyCount: anomalyCheck.anomalies.length });
 
   const checks = [
-    { ok: !blacklistHit, label:'Blacklist / watchlist match',
-      sub: blacklistHit ? 'Document number matches a demo watchlist entry' : (docNumber ? 'No match against demo dataset' : 'Enter a document number to check') },
-    { ok: registryStatus!=='unregistered' && registryStatus!=='mismatch', label:'National registry cross-check',
-      sub: registryStatus==='verified' ? `Matches registry record — ${registry.entry.name}, ${registry.entry.city}` :
+    { ok: !blacklistHit, warn: !!blacklistRes.unavailable, label:'Blacklist / watchlist match',
+      sub: blacklistRes.unavailable ? 'Live blacklist lookup unavailable — try again in a moment' :
+           blacklistHit ? 'Document number matches a live blacklist entry' : (docNumber ? 'No match against the live blacklist table' : 'Enter a document number to check') },
+    { ok: registryStatus!=='unregistered' && registryStatus!=='mismatch', warn: registryStatus==='unavailable', label:'National registry cross-check',
+      sub: registryStatus==='unavailable' ? 'Live registry lookup unavailable — try again in a moment' :
+           registryStatus==='verified' ? `Matches registry record — ${registry.entry.name}, ${registry.entry.city}` :
            registryStatus==='mismatch' ? `Document number belongs to a different registered identity (${registry.entry.name})` :
            registryStatus==='unregistered' ? 'Document number not found in the national registry' :
            'Enter a document number to check' },
-    { ok: !duplicateHit, label:'Duplicate identity search',
-      sub: duplicateHit ? 'Same name + DOB found under a prior scan' : ((name && dobISO) ? 'No duplicate found in demo scan history' : 'Enter name + date of birth to check') },
+    { ok: !duplicateHit, warn: !!duplicateRes.unavailable, label:'Duplicate identity search',
+      sub: duplicateRes.unavailable ? 'Live duplicate-history lookup unavailable — try again in a moment' :
+           duplicateHit ? 'Same name + DOB found under a prior scan' : ((name && dobISO) ? 'No duplicate found in the live scan history' : 'Enter name + date of birth to check') },
     { ok: mrzValid, label:'Document number format',
       sub: docNumber ? (mrzValid ? 'Matches expected format (12-digit number)' : 'Does not match the expected format (needs 12 digits)') : 'Enter a document number to check' },
     { ok: !expired, label:'Document validity',
@@ -2195,11 +2235,11 @@ function renderManual(){
     { ok: anomalyCheck.ok, label:'Zero-day anomaly detection', sub: anomalyCheck.ok ? 'No behavioral or cross-signal anomalies detected this session' : anomalyCheck.anomalies.join('; ') },
   ];
   const checkRows = checks.map(c=>{
-    const cls = c.ok ? 'check-pass' : 'check-fail';
-    const icon = c.ok ? ICON.check : ICON.x;
+    const cls = c.ok ? 'check-pass' : (c.warn ? 'check-warn' : 'check-fail');
+    const icon = c.ok ? ICON.check : (c.warn ? ICON.warn : ICON.x);
     return `<div class="check-row">
       <span class="check-icon ${cls}">${icon}</span>
-      <span class="check-text"><b>${c.label} <span class="tag tag-sim" style="margin-left:4px;">LIVE</span></b><span>${c.sub}</span></span>
+      <span class="check-text"><b>${c.label} <span class="tag tag-live" style="margin-left:4px;">LIVE</span></b><span>${c.sub}</span></span>
     </div>`;
   }).join('');
 
@@ -2360,17 +2400,24 @@ async function runDemo(source){
   });
 
   const docHash = fnv1a(fields.docNumber);
-  const blacklistHit = BLACKLIST.includes(fields.docNumber);
-  await playStep(4, null);
+  let blacklistHit = false, blacklistUnavailable = false;
+  await playStep(4, async ()=>{
+    const res = await checkBlacklistLive(fields.docNumber);
+    blacklistHit = !!res.hit; blacklistUnavailable = !!res.unavailable;
+  });
 
-  const priorMatch = DUPLICATE_STORE.some(d=> d.name.toLowerCase()===fields.name.toLowerCase() && d.dob===fields.dobISO);
   const sessionMatch = window.__sessionScans && window.__sessionScans.some(s=> s.name.toLowerCase()===fields.name.toLowerCase() && s.dobISO===fields.dobISO);
-  const duplicateHit = priorMatch || !!sessionMatch;
-  await playStep(5, null);
+  let duplicateHit = !!sessionMatch, duplicateUnavailable = false;
+  await playStep(5, async ()=>{
+    const res = await checkDuplicateLive(fields.name, fields.dobISO);
+    duplicateHit = duplicateHit || !!res.hit; duplicateUnavailable = !!res.unavailable;
+  });
 
-  const registry = checkRegistry(fields.docNumber, fields.name, fields.dobISO);
+  let registry = null;
+  await playStep(6, async ()=>{
+    registry = await checkRegistryLive(fields.docNumber, fields.name, fields.dobISO);
+  });
   const registryStatus = registry ? registry.status : null;
-  await playStep(6, null);
 
   const docTypeCheck = checkDocTypeRules(fields.docType, { dobISO: fields.dobISO, expiry: fields.expiry });
   const anomalyCheck = detectAnomalies({
@@ -2399,7 +2446,7 @@ async function runDemo(source){
   } else {
     faceRefSrc = null; faceRefLabel = ''; faceRefKind = 'none';
   }
-  renderResults({fields, sourceLabel, ela, tamperScore, blacklistHit, duplicateHit, registry, risk, qrStatus, qrDecoded, mrzDetail, docTypeCheck, anomalyCheck});
+  renderResults({fields, sourceLabel, ela, tamperScore, blacklistHit, blacklistUnavailable, duplicateHit, duplicateUnavailable, registry, risk, qrStatus, qrDecoded, mrzDetail, docTypeCheck, anomalyCheck});
 
   // log to session + dashboard
   window.__sessionScans = window.__sessionScans || [];
@@ -2460,7 +2507,7 @@ function buildInvestigationReport(r){
   const registryStatus = r.registry ? r.registry.status : null;
   const findings = [];
 
-  if(r.blacklistHit) findings.push({ points:30, text:'The document number matches an entry on the demo blacklist/watchlist.' });
+  if(r.blacklistHit) findings.push({ points:30, text:'The document number matches an entry on the live blacklist/watchlist.' });
   if(r.duplicateHit) findings.push({ points:25, text:'The same name and date of birth were already logged under a prior scan this session — a possible duplicate identity.' });
   if(registryStatus==='mismatch') findings.push({ points:28, text:`The document number is registered in the national dataset to a different identity ("${r.registry.entry.name}") than what is printed on this document.` });
   else if(registryStatus==='unregistered') findings.push({ points:26, text:'The document number could not be found in the national registry at all.' });
@@ -2550,7 +2597,7 @@ function buildPrintReportHTML(r){
     <h2>Verification checks</h2>
     <table>${checksTable}</table>
 
-    <div class="pr-meta" style="margin-top:18px;">VeriScanx — SIH 2026 demo system. Generated client-side; no data leaves the browser. Findings are computed against fictional/demo reference datasets and do not represent a real government determination.</div>
+    <div class="pr-meta" style="margin-top:18px;">VeriScanx — SIH 2026 demo system. Blacklist, registry, and duplicate-identity checks run live against the real application database in real time; findings do not represent a real government determination.</div>
   `;
 }
 
@@ -2561,9 +2608,10 @@ function renderResults(r){
   const bandSoft = `var(${BAND_SOFT_VAR[r.risk.band]})`;
 
   const registryStatus = r.registry ? r.registry.status : null;
-  const registrySub = registryStatus==='verified' ? `Matches registry record — ${r.registry.entry.name}, ${r.registry.entry.city}, ${r.registry.entry.state}` :
+  const registrySub = registryStatus==='unavailable' ? 'Live registry lookup unavailable — try again in a moment' :
+    registryStatus==='verified' ? `Matches registry record — ${r.registry.entry.name}, ${r.registry.entry.city}, ${r.registry.entry.state}` :
     registryStatus==='mismatch' ? `Document number belongs to a different registered identity (${r.registry.entry.name})` :
-    registryStatus==='unregistered' ? 'Document number not found in the national registry (49 records)' :
+    registryStatus==='unregistered' ? 'Document number not found in the national registry' :
     'No document number to check';
 
   const mrzFailed = r.mrzDetail && r.mrzDetail.checks ? r.mrzDetail.checks.filter(c=>!c.pass) : [];
@@ -2581,9 +2629,9 @@ function renderResults(r){
     {ok: r.tamperScore<45, warn: r.tamperScore>=45&&r.tamperScore<65, label:'Image forensics (ELA)', sub: r.tamperScore<45?'No significant manipulation detected':'Localized inconsistency detected in image', tag:'LIVE', tagClass:'tag-live'},
     {ok: r.qrStatus!=='mismatch', warn: r.qrStatus==='found'||r.qrStatus==='unsupported', label:'QR / chip code verification', sub: qrSub, tag:'LIVE', tagClass:'tag-live'},
     {ok: r.fields.mrzValid, label:'MRZ checksum (ICAO 9303)', sub: mrzSub, tag:'LIVE', tagClass:'tag-live'},
-    {ok: !r.blacklistHit, label:'Blacklist / watchlist match', sub: r.blacklistHit?'Document number matches a demo watchlist entry':'No match against demo dataset (247 records)', tag:'SIMULATED', tagClass:'tag-sim'},
-    {ok: registryStatus!=='unregistered' && registryStatus!=='mismatch', label:'National registry cross-check', sub: registrySub, tag:'LIVE', tagClass:'tag-live'},
-    {ok: !r.duplicateHit, label:'Duplicate identity search', sub: r.duplicateHit?'Same name + DOB found under a prior scan':'No duplicate found in demo scan history', tag:'SIMULATED', tagClass:'tag-sim'},
+    {ok: !r.blacklistHit, warn: !!r.blacklistUnavailable, label:'Blacklist / watchlist match', sub: r.blacklistUnavailable?'Live blacklist lookup unavailable — try again in a moment':(r.blacklistHit?'Document number matches a live blacklist entry':'No match against the live blacklist table'), tag:'DATABASE', tagClass:'tag-live'},
+    {ok: registryStatus!=='unregistered' && registryStatus!=='mismatch', warn: registryStatus==='unavailable', label:'National registry cross-check', sub: registrySub, tag:'DATABASE', tagClass:'tag-live'},
+    {ok: !r.duplicateHit, warn: !!r.duplicateUnavailable, label:'Duplicate identity search', sub: r.duplicateUnavailable?'Live duplicate-history lookup unavailable — try again in a moment':(r.duplicateHit?'Same name + DOB found under a prior scan':'No duplicate found in the live scan history'), tag:'DATABASE', tagClass:'tag-live'},
     {ok: !r.fields.expired, label:'Document validity', sub: r.fields.expired?'Document expiry date has passed':'Document within validity window', tag:'DERIVED', tagClass:'tag-sim'},
     {ok: r.docTypeCheck.ok, label:`Document-type rules (${r.fields.docType||'Passport'})`, sub: r.docTypeCheck.reason, tag:'DERIVED', tagClass:'tag-sim'},
     {ok: r.anomalyCheck.ok, label:'Zero-day anomaly detection', sub: r.anomalyCheck.ok ? 'No behavioral or cross-signal anomalies detected this session' : r.anomalyCheck.anomalies.join('; '), tag:'LIVE', tagClass:'tag-live'},
@@ -3376,7 +3424,7 @@ window.__sessionScans = window.__sessionScans || [];
     { q: /what (is|does).*(veriscanx|it do|this)|about veriscanx|tell me about/i,
       a: "VeriScanx is a computer-vision pipeline that inspects passports and ID documents for tampering, cross-checks passenger details against government and international records, catches duplicate or blacklisted identities, and hands the counter officer one clear risk score — all in seconds." },
     { q: /real (govt|government) database|connect.*(government|database)|actual (govt|government)/i,
-      a: "Not in this demo — the public site and Live Demo tab query a small illustrative dataset so anyone can try it without touching a real system. The officer panel is architected against the same schema a real registry/blacklist connector would use, so wiring in an actual government feed is a connector swap, not a redesign." },
+      a: "Not a real government feed — but the Live Demo tab does query the same live application database the officer panel itself uses, in real time, rather than a separate offline dataset. The records in it are still fictional demo data for the hackathon; wiring in an actual government/international feed is a connector swap away, since both sides already share the same schema." },
     { q: /connection drop|offline|no internet|database down/i,
       a: "Image forensics and MRZ checksum validation run entirely client-side, so they still work offline. Checks that need a live lookup (blacklist, registry, prior-scan history) are clearly marked as unavailable rather than silently skipped, and the document is routed to manual review instead of guessing." },
     { q: /override|officer decide|human (decision|override)/i,
